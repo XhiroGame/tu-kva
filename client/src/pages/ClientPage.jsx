@@ -11,7 +11,7 @@ import NowPlaying from '@/components/queue/NowPlaying'
 import QueueList from '@/components/queue/QueueList'
 
 // APIs y Supabase Realtime
-import { searchSongs, addToQueue, getQueue } from '@/lib/api'
+import { searchSongs, addToQueue, getQueue, validateTable } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 
 export default function ClientPage() {
@@ -58,16 +58,18 @@ export default function ClientPage() {
         setQueue(response.queue || [])
       }
 
-      // Obtener el nombre real de la mesa según el token del QR
+      // Obtener el nombre real de la mesa validando el token contra el servidor
       if (qrToken) {
-        const { data: tableData } = await supabase
-          .from('tables')
-          .select('table_name')
-          .eq('qr_token', qrToken)
-          .single()
-
-        if (tableData?.table_name) {
-          setTableName(tableData.table_name)
+        try {
+          const tableRes = await validateTable(qrToken)
+          if (tableRes?.success && tableRes.data?.tableName) {
+            setTableName(tableRes.data.tableName)
+            if (tableRes.data.businessName) {
+              setBusinessName(tableRes.data.businessName)
+            }
+          }
+        } catch (tErr) {
+          console.warn('Error validando mesa:', tErr)
         }
       }
     } catch (error) {

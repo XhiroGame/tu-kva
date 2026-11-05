@@ -174,6 +174,40 @@ export async function createTable(req, res) {
 }
 
 /**
+ * GET /api/tables/validate/:qrToken
+ * Valida un token de QR y devuelve el nombre real de la mesa y del negocio
+ */
+export async function validateTable(req, res) {
+  try {
+    const { qrToken } = req.params
+
+    const { data: table, error } = await supabaseAdmin
+      .from('tables')
+      .select('id, table_name, active, business_id, businesses ( name, slug )')
+      .eq('qr_token', qrToken)
+      .single()
+
+    if (error || !table) {
+      return res.status(404).json({ success: false, message: 'Mesa no encontrada o token inválido' })
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        tableId: table.id,
+        tableName: table.table_name,
+        active: table.active,
+        businessName: table.businesses?.name || 'Tu K-VA',
+        businessSlug: table.businesses?.slug || 'tu-kva',
+      },
+    })
+  } catch (error) {
+    console.error('[Validate Table Error]', error)
+    return res.status(500).json({ success: false, message: error.message })
+  }
+}
+
+/**
  * DELETE /api/tables/:tableId
  * Elimina una mesa
  */
