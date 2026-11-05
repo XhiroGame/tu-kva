@@ -6,20 +6,26 @@
 
 /**
  * Detecta la URL base del backend dinámicamente.
- * Si se abre desde un teléfono móvil (ej: http://192.168.1.6:5173),
- * hace las peticiones al backend en esa misma IP (http://192.168.1.6:3001)
- * para que el celular no intente conectar a su propio "localhost".
+ * En producción (Vercel) utiliza VITE_API_BASE_URL (Render).
+ * En desarrollo local si se abre por IP de Wi-Fi, utiliza el puerto 3001.
  */
 function getApiBaseUrl() {
+  // 1. En producción o si está configurada la variable en Vercel / .env, usarla siempre
+  const envUrl = import.meta.env.VITE_API_BASE_URL
+  if (envUrl && typeof envUrl === 'string' && envUrl.trim()) {
+    return envUrl.trim().replace(/\/$/, '')
+  }
+
+  // 2. Fallback para desarrollo local por IP de red Wi-Fi (ej: 192.168.1.6)
   if (typeof window !== 'undefined' && window.location) {
     const hostname = window.location.hostname
     const protocol = window.location.protocol || 'http:'
-    // Si la app se cargó desde una IP o dominio de red
     if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
       return `${protocol}//${hostname}:3001`
     }
   }
-  return import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'
+
+  return 'http://localhost:3001'
 }
 
 const API_BASE_URL = getApiBaseUrl()
