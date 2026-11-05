@@ -19,28 +19,14 @@ app.use(helmet({
 }))
 
 // ---- CORS ----
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173').split(',')
 app.use(cors({
   origin: (origin, callback) => {
-    // Permitir requests sin origin (teléfonos que escanean directo, curl, apps móviles)
-    if (!origin) return callback(null, true)
-    
-    // Permitir orígenes configurados o cualquier dispositivo en red local (192.168.x.x, 10.x.x.x, localhost)
-    if (
-      allowedOrigins.includes(origin) ||
-      /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/.test(origin)
-    ) {
-      return callback(null, true)
-    }
-
-    // En desarrollo local permitimos la conexión para que ningún teléfono sea bloqueado
-    if (process.env.NODE_ENV !== 'production') {
-      return callback(null, true)
-    }
-
-    callback(new Error(`CORS: Origin ${origin} not allowed`))
+    // Permitir siempre: peticiones desde Vercel, Render, localhost o cualquier navegador cliente
+    callback(null, true)
   },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 }))
 
 // ---- Body Parsing ----
