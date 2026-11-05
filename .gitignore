@@ -1,0 +1,27 @@
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Dependencies
+node_modules/
+
+# Environment variables (NEVER commit these)
+.env
+.env.local
+.env.production
+
+# Build outputs
+dist/
+build/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/settings.json
+.idea/
+
+# Misc
+*.local
