@@ -313,3 +313,42 @@ export async function getSmartFallbackSongs(req, res) {
     return res.status(500).json({ success: false, message: error.message })
   }
 }
+
+/**
+ * GET /api/songs/suggestions?q=...
+ * Obtiene sugerencias de autocompletado en tiempo real estilo YouTube (ultrarrápido)
+ */
+export async function getSongSuggestions(req, res) {
+  try {
+    const q = (req.query.q || '').trim()
+    if (!q) {
+      return res.json({ success: true, data: [] })
+    }
+
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 1500)
+
+    const url = `https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q=${encodeURIComponent(q)}`
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+    })
+    clearTimeout(timeout)
+
+    const json = await response.json()
+    const rawSuggestions = Array.isArray(json?.[1]) ? json[1] : []
+
+    const cleanSuggestions = rawSuggestions
+      .filter((item) => typeof item === 'string' && item.trim().length > 0)
+      .slice(0, 8)
+
+    return res.json({
+      success: true,
+      data: cleanSuggestions,
+    })
+  } catch (error) {
+    return res.json({ success: true, data: [] })
+  }
+}

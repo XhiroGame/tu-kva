@@ -8,6 +8,7 @@ import {
 import toast from 'react-hot-toast'
 
 import Logo from '@/components/ui/Logo'
+import SearchBar from '@/components/ui/SearchBar'
 import { formatDuration } from '@/components/queue/SongCard'
 import { getQueue, updateQueueItem, getSmartFallback, searchSongs, addToQueue } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
@@ -744,22 +745,16 @@ export default function PlayerPage() {
               </button>
             </div>
 
-            {/* Input de Búsqueda */}
+            {/* Input de Búsqueda estilo YouTube */}
             <div className="p-4 border-b border-white/10 bg-dark-50">
-              <div className="relative">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-beer-500" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Buscar cualquier canción, artista o género para el bar..."
-                  className="input-field pl-11 py-3.5 text-base"
-                  autoFocus
-                />
-                {isSearching && (
-                  <Loader2 className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-beer-500 animate-spin" />
-                )}
-              </div>
+              <SearchBar
+                value={searchQuery}
+                onChange={setSearchQuery}
+                onClear={() => setSearchQuery('')}
+                onSearch={(term) => setSearchQuery(term)}
+                isLoading={isSearching}
+                placeholder="Buscar cualquier canción, artista o género en YouTube..."
+              />
             </div>
 
             {/* Resultados de Búsqueda */}

@@ -69,6 +69,16 @@ async function apiFetch(endpoint, options = {}) {
 // ---- Songs API ----
 
 /**
+ * Obtener sugerencias de autocompletado en tiempo real estilo YouTube
+ * @param {string} query
+ * @param {object} options - { signal }
+ */
+export const getSongSuggestions = (query, options = {}) =>
+  apiFetch(`/songs/suggestions?q=${encodeURIComponent(query)}`, {
+    signal: options.signal,
+  })
+
+/**
  * Search songs by query term via backend (keeps API key private).
  * @param {string} query - Search term (title, artist, genre)
  * @param {object} options - { limit, offset, signal }
