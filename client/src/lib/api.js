@@ -71,10 +71,13 @@ async function apiFetch(endpoint, options = {}) {
 /**
  * Search songs by query term via backend (keeps API key private).
  * @param {string} query - Search term (title, artist, genre)
- * @param {object} options - { limit, offset }
+ * @param {object} options - { limit, offset, signal }
  */
 export const searchSongs = (query, options = {}) =>
-  apiFetch(`/songs/search?q=${encodeURIComponent(query)}&limit=${options.limit || 20}&offset=${options.offset || 0}`)
+  apiFetch(
+    `/songs/search?q=${encodeURIComponent(query)}&limit=${options.limit || 15}&offset=${options.offset || 0}`,
+    { signal: options.signal }
+  )
 
 /**
  * Obtener canciones más sonadas del bar / ambiente inteligente

@@ -2,20 +2,16 @@ import React, { useRef } from 'react'
 import { Search, X, Loader2 } from 'lucide-react'
 
 /**
- * SearchBar - Barra de búsqueda con icono, botón de limpiar y spinner de carga
- * @param {object} props
- * @param {string} props.value - Término de búsqueda actual
- * @param {function} props.onChange - Handler de cambio de texto
- * @param {function} props.onClear - Handler para limpiar búsqueda
- * @param {boolean} props.isLoading - Estado de búsqueda activa
- * @param {string} props.placeholder - Texto placeholder
+ * SearchBar - Barra de búsqueda responsiva optimizada para móviles
  */
 export default function SearchBar({
   value,
   onChange,
   onClear,
   isLoading = false,
-  placeholder = 'Buscar por canción, artista o grupo...',
+  placeholder = 'Buscar canción, artista o género...',
+  chips = [],
+  onSelectChip,
 }) {
   const inputRef = useRef(null)
 
@@ -25,39 +21,72 @@ export default function SearchBar({
   }
 
   return (
-    <div className="relative w-full">
-      {/* Icono de búsqueda */}
-      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
-        <Search className="w-5 h-5 text-beer-500/80" />
+    <div className="w-full space-y-2.5">
+      {/* Campo de búsqueda principal */}
+      <div className="relative w-full">
+        {/* Icono de búsqueda */}
+        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+          <Search className="w-4 h-4 sm:w-5 sm:h-5 text-beer-500/80" />
+        </div>
+
+        {/* Input con inputMode optimizado para teclado móvil */}
+        <input
+          ref={inputRef}
+          type="search"
+          inputMode="search"
+          enterKeyHint="search"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="w-full pl-10 sm:pl-11 pr-10 sm:pr-11 py-2.5 sm:py-3 bg-dark-50/90 border border-dark-border focus:border-beer-500/80 rounded-2xl text-white placeholder-gray-500 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-beer-500/20 transition-all shadow-inner"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck="false"
+        />
+
+        {/* Icono derecho: Spinner o Botón de limpiar grande para pulgar */}
+        <div className="absolute inset-y-0 right-0 pr-2 flex items-center">
+          {isLoading ? (
+            <div className="p-2">
+              <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 text-beer-500 animate-spin" />
+            </div>
+          ) : value ? (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="p-2 rounded-full text-gray-400 hover:text-white active:bg-white/10 transition-colors touch-manipulation"
+              title="Borrar búsqueda"
+              aria-label="Borrar texto"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          ) : null}
+        </div>
       </div>
 
-      {/* Input */}
-      <input
-        ref={inputRef}
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full pl-11 pr-11 py-3.5 bg-dark-50 border border-dark-border focus:border-beer-500/80 rounded-2xl text-white placeholder-gray-500 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-beer-500/30 transition-all shadow-inner"
-        autoComplete="off"
-        spellCheck="false"
-      />
-
-      {/* Icono derecho: Spinner o Botón de limpiar */}
-      <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center">
-        {isLoading ? (
-          <Loader2 className="w-5 h-5 text-beer-500 animate-spin" />
-        ) : value ? (
-          <button
-            type="button"
-            onClick={handleClear}
-            className="p-1 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-            title="Borrar búsqueda"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        ) : null}
-      </div>
+      {/* Chips de Búsqueda Rápida por Géneros (Scroll horizontal suave en móviles) */}
+      {chips.length > 0 && (
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1 touch-pan-x">
+          {chips.map((chip) => {
+            const isSelected = value.toLowerCase() === chip.query.toLowerCase()
+            return (
+              <button
+                key={chip.label}
+                type="button"
+                onClick={() => onSelectChip && onSelectChip(chip.query)}
+                className={`whitespace-nowrap px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-150 flex-shrink-0 touch-manipulation ${
+                  isSelected
+                    ? 'bg-beer-500 text-dark-200 shadow-sm shadow-beer/30'
+                    : 'bg-dark-100/90 text-gray-300 hover:text-white border border-white/5 active:border-beer-500/40 hover:bg-dark-50'
+                }`}
+              >
+                {chip.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

@@ -1,40 +1,37 @@
 import React from 'react'
 import Logo from '@/components/ui/Logo'
-import { Utensils, Wifi } from 'lucide-react'
+import { Utensils } from 'lucide-react'
 
 /**
- * ClientHeader - Encabezado de la interfaz de clientes con identificación de mesa
- * @param {object} props
- * @param {string} props.businessName - Nombre del bar
- * @param {string} props.tableName - Nombre de la mesa escaneada (ej: "Mesa 5")
+ * ClientHeader - Encabezado optimizado y responsivo para pantallas móviles
  */
 export default function ClientHeader({ businessName = 'Tu K-VA', tableName = 'Cargando mesa...' }) {
   return (
-    <header className="pt-2 pb-4 border-b border-dark-border/40">
-      <div className="flex items-center justify-between">
-        {/* Logo compacto */}
+    <header className="pt-1 pb-3 border-b border-dark-border/40">
+      <div className="flex items-center justify-between gap-3">
+        {/* Logo */}
         <Logo size="sm" />
 
-        {/* Badge de la Mesa */}
-        <div className="flex items-center gap-2 bg-gradient-to-r from-beer-950/60 to-dark-50 border border-beer-500/30 px-3 py-1.5 rounded-2xl shadow-sm shadow-beer/10">
+        {/* Badge de la Mesa destacado */}
+        <div className="flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-beer-950/80 to-dark-50 border border-beer-500/40 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-2xl shadow-sm shadow-beer/10">
           <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" title="Conectado en vivo" />
-          <div className="flex items-center gap-1.5">
-            <Utensils className="w-3.5 h-3.5 text-beer-400" />
-            <span className="text-xs sm:text-sm font-bold text-white tracking-wide">
+          <div className="flex items-center gap-1">
+            <Utensils className="w-3 h-3 text-beer-400" />
+            <span className="text-xs sm:text-sm font-black text-white tracking-wide">
               {tableName}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Frase gancho */}
-      <div className="mt-3 text-center sm:text-left">
-        <h2 className="text-xl sm:text-2xl font-extrabold font-display tracking-tight text-white">
+      {/* Frase gancho compacta */}
+      <div className="mt-2 flex items-baseline justify-between">
+        <h2 className="text-base sm:text-xl font-extrabold font-display tracking-tight text-white">
           ¡Tú eliges la <span className="text-gradient">música!</span> 🍺
         </h2>
-        <p className="text-xs sm:text-sm text-gray-400 mt-0.5">
-          Pide tus canciones favoritas sin moverte de la mesa
-        </p>
+        <span className="text-[11px] text-gray-400 font-medium hidden xs:inline">
+          Pide tu canción a la playlist
+        </span>
       </div>
     </header>
   )

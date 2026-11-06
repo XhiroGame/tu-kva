@@ -3,39 +3,113 @@ import supabaseAdmin from '../config/supabase.js'
 
 const musicProvider = new YouTubeProvider()
 
+// Caché ultra-rápido en memoria RAM del servidor (evita scraping repetido)
+const searchMemoryCache = new Map()
+const CACHE_TTL_MS = 1000 * 60 * 60 * 2 // 2 horas de duración
+const MAX_CACHE_ENTRIES = 400
+
+function getFromMemoryCache(key) {
+  const cached = searchMemoryCache.get(key)
+  if (!cached) return null
+  if (Date.now() > cached.expiresAt) {
+    searchMemoryCache.delete(key)
+    return null
+  }
+  return cached.data
+}
+
+function setToMemoryCache(key, data) {
+  if (searchMemoryCache.size >= MAX_CACHE_ENTRIES) {
+    const oldestKey = searchMemoryCache.keys().next().value
+    searchMemoryCache.delete(oldestKey)
+  }
+  searchMemoryCache.set(key, {
+    data,
+    expiresAt: Date.now() + CACHE_TTL_MS,
+  })
+}
+
 /**
  * GET /api/songs/search
- * Busca canciones por término (query) y guarda en caché de la base de datos
+ * Busca canciones por término (query) con caché en memoria ultra-rápido y caché en base de datos
  */
 export async function searchSongs(req, res) {
   try {
-    const query = req.query.q || ''
-    const limit = parseInt(req.query.limit, 10) || 20
+    const query = (req.query.q || '').trim()
+    const limit = Math.min(parseInt(req.query.limit, 10) || 15, 25)
     const offset = parseInt(req.query.offset, 10) || 0
 
-    if (!query.trim()) {
-      // Si la búsqueda está vacía, buscamos canciones populares/tendencia
-      const results = await musicProvider.search('rock', { limit: 10, offset: 0 })
-      return res.json({ success: true, count: results.length, data: results })
+    // Si la búsqueda está vacía, retornar catálogo inicial sugerido
+    const normalizedKey = query.toLowerCase() || '__default_populares__'
+
+    // 1. Revisar caché en memoria (Respuesta instantánea en < 5ms)
+    const memoryCached = getFromMemoryCache(normalizedKey)
+    if (memoryCached && memoryCached.length > 0) {
+      return res.json({
+        success: true,
+        source: 'memory_cache',
+        count: memoryCached.length,
+        data: memoryCached.slice(0, limit),
+      })
     }
 
-    // 1. Buscar en el proveedor musical (Jamendo)
-    const results = await musicProvider.search(query, { limit, offset })
+    let results = []
 
-    // 2. Cachear de forma asíncrona en Supabase (tabla songs) para evitar reconsultas
+    // 2. Si no hay query, buscar éxitos populares de ambiente
+    if (!query) {
+      // Intentar primero desde canciones populares ya guardadas en Supabase
+      const { data: popularDbSongs } = await supabaseAdmin
+        .from('songs')
+        .select('*')
+        .eq('provider', 'youtube')
+        .lte('duration', 600)
+        .gt('duration', 60)
+        .order('created_at', { ascending: false })
+        .limit(limit)
+
+      if (popularDbSongs && popularDbSongs.length >= 8) {
+        results = popularDbSongs
+      } else {
+        results = await musicProvider.search('exitos populares musica bar canciones', { limit })
+      }
+    } else {
+      // 3. Buscar en Supabase por si ya fue buscada antes (coincidencia rápida en BD)
+      if (query.length >= 3) {
+        const { data: dbMatches } = await supabaseAdmin
+          .from('songs')
+          .select('*')
+          .or(`title.ilike.%${query}%,artist.ilike.%${query}%`)
+          .lte('duration', 600)
+          .gt('duration', 45)
+          .limit(limit)
+
+        if (dbMatches && dbMatches.length >= 6) {
+          results = dbMatches
+        }
+      }
+
+      // 4. Si aún no hay suficientes resultados locales, buscar en YouTube
+      if (results.length === 0) {
+        results = await musicProvider.search(query, { limit, offset })
+      }
+    }
+
+    // 5. Guardar en caché en memoria para que las próximas consultas sean instantáneas
     if (results.length > 0) {
+      setToMemoryCache(normalizedKey, results)
+
+      // 6. Cachear de forma asíncrona en Supabase (tabla songs) en segundo plano
       const songsToUpsert = results.map((song) => ({
         provider: song.provider,
-        provider_song_id: song.provider_song_id,
+        provider_song_id: String(song.provider_song_id),
         title: song.title,
         artist: song.artist,
-        album: song.album,
+        album: song.album || null,
         thumbnail_url: song.thumbnail_url,
-        duration: song.duration,
+        duration: song.duration || 0,
         stream_url: song.stream_url,
       }))
 
-      // Guardamos/actualizamos en segundo plano
       supabaseAdmin
         .from('songs')
         .upsert(songsToUpsert, { onConflict: 'provider,provider_song_id' })
@@ -48,7 +122,7 @@ export async function searchSongs(req, res) {
       success: true,
       query,
       count: results.length,
-      data: results,
+      data: results.slice(0, limit),
     })
   } catch (error) {
     console.error('[Search Songs Error]', error)
