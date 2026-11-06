@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { Search, ListMusic, Sparkles, AlertCircle, Clock } from 'lucide-react'
+import { Search, ListMusic, Sparkles, AlertCircle, Clock, Disc3, Loader2 } from 'lucide-react'
 
 // Componentes UI
 import ClientHeader from '@/components/ui/ClientHeader'
@@ -436,27 +436,51 @@ export default function ClientPage() {
                   {searchQuery ? 'Resultados' : 'Canciones Recomendadas'}
                 </span>
               </div>
-              <span className="text-[11px] text-gray-500">
-                {isSearching ? 'Buscando...' : `${searchResults.length} canciones`}
-              </span>
+              <div className="text-[11px] text-gray-500">
+                {isSearching ? (
+                  <span className="flex items-center gap-1.5 text-beer-400 font-bold">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Buscando canciones...</span>
+                  </span>
+                ) : (
+                  <span>{searchResults.length} canciones</span>
+                )}
+              </div>
             </div>
 
-            {/* Listado de Canciones o Skeletons mientras busca */}
-            {isSearching && searchResults.length === 0 ? (
-              <div className="space-y-2">
-                {[1, 2, 3, 4, 5].map((idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center p-2.5 gap-2.5 bg-dark-50/60 border border-white/5 rounded-2xl animate-pulse"
-                  >
-                    <div className="w-12 h-12 rounded-xl bg-white/10 flex-shrink-0" />
-                    <div className="flex-1 space-y-2 min-w-0">
-                      <div className="h-3.5 bg-white/10 rounded-md w-3/4" />
-                      <div className="h-2.5 bg-white/5 rounded-md w-1/2" />
-                    </div>
-                    <div className="w-14 h-9 bg-white/10 rounded-xl flex-shrink-0" />
+            {/* Listado de Canciones o Pantalla de Espera Dinámica mientras busca */}
+            {isSearching ? (
+              <div className="space-y-3 animate-fade-in">
+                {/* Tarjeta de espera visual para que el usuario sepa que está buscando */}
+                <div className="card p-5 text-center rounded-2xl bg-dark-50/90 border border-beer-500/40 shadow-lg shadow-beer/10">
+                  <div className="relative w-12 h-12 mx-auto mb-2 flex items-center justify-center">
+                    <Disc3 className="w-12 h-12 text-beer-500 animate-spin" />
+                    <Sparkles className="w-5 h-5 text-yellow-300 absolute -top-1 -right-1 animate-bounce" />
                   </div>
-                ))}
+                  <h4 className="font-bold text-white text-sm sm:text-base font-display">
+                    Buscando en el catálogo...
+                  </h4>
+                  <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">
+                    Consultando canciones para <span className="text-beer-400 font-semibold">"{searchQuery || 'éxitos'}"</span>
+                  </p>
+                </div>
+
+                {/* Skeletons animados de carga */}
+                <div className="space-y-2 opacity-60">
+                  {[1, 2, 3].map((idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center p-2.5 gap-2.5 bg-dark-50/60 border border-white/5 rounded-2xl animate-pulse"
+                    >
+                      <div className="w-12 h-12 rounded-xl bg-white/10 flex-shrink-0" />
+                      <div className="flex-1 space-y-2 min-w-0">
+                        <div className="h-3.5 bg-white/10 rounded-md w-3/4" />
+                        <div className="h-2.5 bg-white/5 rounded-md w-1/2" />
+                      </div>
+                      <div className="w-14 h-9 bg-white/10 rounded-xl flex-shrink-0" />
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : searchResults.length > 0 ? (
               <div className="space-y-2">

@@ -764,7 +764,19 @@ export default function PlayerPage() {
 
             {/* Resultados de Búsqueda */}
             <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
-              {searchResults.length > 0 ? (
+              {isSearching ? (
+                <div className="py-14 text-center animate-fade-in">
+                  <div className="relative w-12 h-12 mx-auto mb-3 flex items-center justify-center">
+                    <Disc3 className="w-12 h-12 text-beer-500 animate-spin" />
+                  </div>
+                  <h4 className="font-bold text-white text-base font-display">
+                    Buscando en YouTube...
+                  </h4>
+                  <p className="text-xs text-gray-400 mt-1 max-w-sm mx-auto">
+                    Consultando canciones para <span className="text-beer-400 font-semibold">"{searchQuery}"</span>
+                  </p>
+                </div>
+              ) : searchResults.length > 0 ? (
                 searchResults.map((song) => (
                   <div
                     key={song.provider_song_id}
