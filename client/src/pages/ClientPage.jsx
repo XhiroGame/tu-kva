@@ -166,9 +166,34 @@ export default function ClientPage() {
     }
   }, [businessSlug])
 
-  // 3. Catálogo sugerido al cargar
+  // 3. Catálogo sugerido al cargar y precarga silenciosa de géneros populares
   useEffect(() => {
     loadSuggestedSongs()
+
+    // Precargar géneros populares silenciosamente en caché para respuesta en 0ms
+    const prefetchTimer = setTimeout(async () => {
+      const topGenres = [
+        'exitos populares canciones',
+        'reggaeton exitos',
+        'salsa clasica exitos',
+      ]
+      for (const gQuery of topGenres) {
+        const key = gQuery.toLowerCase()
+        if (!clientSearchCache.current.has(key)) {
+          try {
+            const res = await searchSongs(gQuery, { limit: 25 })
+            if (res?.data) {
+              const filtered = res.data.filter((s) => s.duration > 30 && s.duration < 600)
+              clientSearchCache.current.set(key, filtered)
+            }
+          } catch {
+            // Silencioso
+          }
+        }
+      }
+    }, 2000)
+
+    return () => clearTimeout(prefetchTimer)
   }, [])
 
   const loadSuggestedSongs = async () => {
@@ -193,7 +218,7 @@ export default function ClientPage() {
     }
   }
 
-  // 4. Búsqueda en vivo optimizada con Debounce + Caché + AbortController
+  // 4. Búsqueda en vivo ultra-rápida con Debounce + Caché 0ms + AbortController
   useEffect(() => {
     const q = searchQuery.trim()
     if (!q) {
@@ -210,15 +235,29 @@ export default function ClientPage() {
       return
     }
 
-    setIsSearching(true)
+    // Si solo hay 1 caracter, filtrar localmente sin demorar con peticiones de red
+    if (q.length === 1) {
+      const defaultCatalog = clientSearchCache.current.get('__default_catalog__') || []
+      const localMatches = defaultCatalog.filter(
+        (s) =>
+          s.title.toLowerCase().includes(cacheKey) ||
+          s.artist.toLowerCase().includes(cacheKey)
+      )
+      if (localMatches.length > 0) {
+        setSearchResults(localMatches)
+      }
+      return
+    }
 
-    // Debounce rápido de 260ms (suficiente para que no sature y responde de inmediato)
+    // Debounce ágil de 220ms (no satura y responde de inmediato)
     const timeout = setTimeout(async () => {
       // Cancelar request previo si aún estaba en curso
       if (activeAbortController.current) {
         activeAbortController.current.abort()
       }
       activeAbortController.current = new AbortController()
+
+      setIsSearching(true)
 
       try {
         const response = await searchSongs(q, {
@@ -232,12 +271,12 @@ export default function ClientPage() {
         }
       } catch (error) {
         if (error.name !== 'AbortError') {
-          toast.error('Error al consultar canciones')
+          console.warn('Error consultando canciones:', error)
         }
       } finally {
         setIsSearching(false)
       }
-    }, 260)
+    }, 220)
 
     return () => clearTimeout(timeout)
   }, [searchQuery])

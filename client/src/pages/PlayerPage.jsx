@@ -37,6 +37,8 @@ export default function PlayerPage() {
   const lastEndedVideoIdRef = useRef(null)
   const recentPlayedIdsRef = useRef([])
   const handleTrackEndedRef = useRef(null)
+  const playerSearchCache = useRef(new Map())
+  const searchAbortController = useRef(null)
 
   // Mantener referencias sincronizadas con el estado actual
   useEffect(() => {
@@ -287,28 +289,47 @@ export default function PlayerPage() {
     }
   }
 
-  // 4. Búsqueda para el personal del bar
+  // 4. Búsqueda ultra-rápida para el personal del bar (Caché local 0ms + AbortController)
   useEffect(() => {
-    if (!searchQuery.trim()) {
+    const q = searchQuery.trim()
+    if (!q) {
       setSearchResults([])
       setIsSearching(false)
       return
     }
 
-    setIsSearching(true)
+    const key = q.toLowerCase()
+    if (playerSearchCache.current.has(key)) {
+      setSearchResults(playerSearchCache.current.get(key))
+      setIsSearching(false)
+      return
+    }
+
     const timeout = setTimeout(async () => {
+      if (searchAbortController.current) {
+        searchAbortController.current.abort()
+      }
+      searchAbortController.current = new AbortController()
+
+      setIsSearching(true)
       try {
-        const res = await searchSongs(searchQuery.trim(), { limit: 30 })
+        const res = await searchSongs(q, {
+          limit: 30,
+          signal: searchAbortController.current.signal,
+        })
         if (res?.data) {
           const filtered = res.data.filter((s) => s.duration > 30 && s.duration < 600)
+          playerSearchCache.current.set(key, filtered)
           setSearchResults(filtered)
         }
       } catch (err) {
-        console.warn('Search error:', err)
+        if (err.name !== 'AbortError') {
+          console.warn('Search error:', err)
+        }
       } finally {
         setIsSearching(false)
       }
-    }, 350)
+    }, 220)
 
     return () => clearTimeout(timeout)
   }, [searchQuery])

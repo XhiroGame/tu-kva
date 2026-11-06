@@ -29,6 +29,28 @@ function setToMemoryCache(key, data) {
   })
 }
 
+// Precalentamiento de búsquedas frecuentes en segundo plano para respuesta instantánea (0ms)
+setTimeout(async () => {
+  const commonGenres = [
+    '__default_populares__',
+    'rock clasico exitos',
+    'exitos populares canciones',
+    'reggaeton exitos',
+    'salsa clasica exitos',
+  ]
+  for (const term of commonGenres) {
+    try {
+      const q = term === '__default_populares__' ? 'exitos populares canciones' : term
+      const songs = await musicProvider.search(q, { limit: 30 })
+      if (songs && songs.length > 0) {
+        setToMemoryCache(term, songs)
+      }
+    } catch {
+      // Precalentamiento silencioso
+    }
+  }
+}, 4000)
+
 /**
  * GET /api/songs/search
  * Busca canciones por término (query) con caché en memoria ultra-rápido y caché en base de datos
@@ -75,24 +97,26 @@ export async function searchSongs(req, res) {
         results = await musicProvider.search('exitos populares musica bar canciones', { limit })
       }
     } else {
-      // 3. Buscar en Supabase por si ya fue buscada antes (coincidencia rápida en BD)
-      if (query.length >= 3) {
-        const { data: dbMatches } = await supabaseAdmin
-          .from('songs')
-          .select('*')
-          .or(`title.ilike.%${query}%,artist.ilike.%${query}%`)
-          .lt('duration', 600)
-          .gt('duration', 45)
-          .limit(limit)
+      // 3. Ejecución ultra-rápida en paralelo: consultar YouTube y la base de datos simultáneamente
+      const ytPromise = musicProvider.search(query, { limit, offset })
+      const dbPromise = query.length >= 2
+        ? supabaseAdmin
+            .from('songs')
+            .select('*')
+            .or(`title.ilike.%${query}%,artist.ilike.%${query}%`)
+            .lt('duration', 600)
+            .gt('duration', 30)
+            .limit(15)
+        : Promise.resolve({ data: [] })
 
-        if (dbMatches && dbMatches.length >= 8) {
-          results = dbMatches
-        }
-      }
+      const [ytRes, dbRes] = await Promise.allSettled([ytPromise, dbPromise])
+      const ytSongs = ytRes.status === 'fulfilled' ? ytRes.value || [] : []
+      const dbSongs = dbRes.status === 'fulfilled' && dbRes.value?.data ? dbRes.value.data : []
 
-      // 4. Si aún no hay suficientes resultados locales, buscar en YouTube
-      if (results.length === 0) {
-        results = await musicProvider.search(query, { limit, offset })
+      if (ytSongs.length > 0) {
+        results = ytSongs
+      } else if (dbSongs.length > 0) {
+        results = dbSongs
       }
     }
 

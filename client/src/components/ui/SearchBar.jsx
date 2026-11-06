@@ -45,23 +45,24 @@ export default function SearchBar({
           spellCheck="false"
         />
 
-        {/* Icono derecho: Spinner o Botón de limpiar grande para pulgar */}
-        <div className="absolute inset-y-0 right-0 pr-2 flex items-center">
-          {isLoading ? (
-            <div className="p-2">
-              <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 text-beer-500 animate-spin" />
+        {/* Icono derecho: Spinner sutil y Botón de limpiar siempre accesible */}
+        <div className="absolute inset-y-0 right-0 pr-2 flex items-center gap-1">
+          {isLoading && (
+            <div className="p-1" title="Buscando...">
+              <Loader2 className="w-4 h-4 text-beer-500 animate-spin" />
             </div>
-          ) : value ? (
+          )}
+          {value && (
             <button
               type="button"
               onClick={handleClear}
-              className="p-2 rounded-full text-gray-400 hover:text-white active:bg-white/10 transition-colors touch-manipulation"
+              className="p-1.5 rounded-full text-gray-400 hover:text-white active:bg-white/10 transition-colors touch-manipulation"
               title="Borrar búsqueda"
               aria-label="Borrar texto"
             >
               <X className="w-4 h-4" />
             </button>
-          ) : null}
+          )}
         </div>
       </div>
 
