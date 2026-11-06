@@ -18,8 +18,8 @@ export default function SongCard({ song, onAdd, isAdding = false, isAdded = fals
   const { title, artist, thumbnail_url, duration } = song
 
   return (
-    <div className="flex items-center p-2.5 sm:p-3 gap-2.5 sm:gap-3 bg-dark-50/95 border border-white/5 hover:border-beer-500/40 rounded-2xl group transition-all duration-150 active:bg-dark-100">
-      {/* Portada compacta con duración integrada */}
+    <div className="flex items-center p-2.5 sm:p-3 gap-2.5 sm:gap-3 bg-dark-50/95 border border-white/5 hover:border-beer-500/40 rounded-2xl group transition-all duration-150 active:bg-dark-100 w-full max-w-full">
+      {/* Portada con duración estilo YouTube */}
       <div className="relative w-12 h-12 sm:w-14 sm:h-14 flex-shrink-0 rounded-xl overflow-hidden bg-dark-100 border border-white/10 shadow-sm">
         {thumbnail_url ? (
           <img
@@ -34,19 +34,19 @@ export default function SongCard({ song, onAdd, isAdding = false, isAdded = fals
           </div>
         )}
 
-        {/* Micro badge de duración sobre la imagen */}
+        {/* Badge de duración exacto estilo YouTube (esquina inferior derecha) */}
         {duration > 0 && (
-          <div className="absolute bottom-0 inset-x-0 bg-black/75 backdrop-blur-[2px] py-0.5 text-center">
-            <span className="text-[9px] font-semibold text-gray-200 font-mono tracking-tight leading-none block">
+          <div className="absolute bottom-0.5 right-0.5 bg-black/90 backdrop-blur-[1px] px-1 py-0.5 rounded text-center">
+            <span className="text-[9px] font-bold text-gray-200 font-mono tracking-tight leading-none block">
               {formatDuration(duration)}
             </span>
           </div>
         )}
       </div>
 
-      {/* Info de la Canción optimizada para móvil */}
+      {/* Info de la Canción: permite 2 líneas para título completo sin desbordar */}
       <div className="flex-1 min-w-0 pr-1">
-        <h4 className="font-semibold text-xs sm:text-sm text-white truncate leading-tight group-hover:text-beer-400 transition-colors">
+        <h4 className="font-semibold text-xs sm:text-sm text-white line-clamp-2 leading-snug group-hover:text-beer-400 transition-colors break-words">
           {title}
         </h4>
         <p className="text-[11px] sm:text-xs text-gray-400 truncate mt-0.5 font-medium">
@@ -54,12 +54,12 @@ export default function SongCard({ song, onAdd, isAdding = false, isAdded = fals
         </p>
       </div>
 
-      {/* Botón de Agregar táctil y responsivo */}
+      {/* Botón de Agregar con proporciones fijas para que no se aplaste */}
       <button
         type="button"
         onClick={() => onAdd(song)}
         disabled={isAdding || isAdded}
-        className={`flex-shrink-0 flex items-center justify-center h-9 sm:h-10 px-3 sm:px-3.5 rounded-xl text-xs font-bold transition-all duration-150 active:scale-95 touch-manipulation ${
+        className={`flex-shrink-0 flex items-center justify-center h-9 sm:h-10 w-16 sm:w-20 rounded-xl text-xs font-bold transition-all duration-150 active:scale-95 touch-manipulation ${
           isAdded
             ? 'bg-green-500/20 text-green-400 border border-green-500/30'
             : isAdding

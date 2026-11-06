@@ -27,17 +27,36 @@ class YouTubeProvider extends MusicProvider {
         .trim()
       const searchPrompt = cleanQuery || query
 
-      // Timeout de 4 segundos para evitar que la búsqueda se quede "pensando" indefinidamente
+      // Buscar dos consultas complementarias en paralelo para obtener más de 30 resultados completos
+      const p1 = ytSearch(searchPrompt)
+      const p2 = ytSearch(`${searchPrompt} canciones`)
+
+      // Timeout de 4.5 segundos para evitar bloqueos
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('YouTube search timeout')), 4200)
+        setTimeout(() => reject(new Error('YouTube search timeout')), 4500)
       )
 
-      const searchResults = await Promise.race([
-        ytSearch(searchPrompt),
+      const settled = await Promise.race([
+        Promise.allSettled([p1, p2]),
         timeoutPromise,
       ])
 
-      const videos = searchResults?.videos || []
+      const videos = []
+      const seenIds = new Set()
+
+      if (Array.isArray(settled)) {
+        for (const item of settled) {
+          if (item.status === 'fulfilled' && item.value?.videos) {
+            for (const v of item.value.videos) {
+              const vid = String(v.videoId || v.id || '')
+              if (vid && !seenIds.has(vid)) {
+                seenIds.add(vid)
+                videos.push(v)
+              }
+            }
+          }
+        }
+      }
 
       // Filtrado estricto: estrictamente MENOS de 10 minutos (600 segundos) y más de 30 segundos
       const MAX_SECONDS = 599 // Menos de 10 minutos

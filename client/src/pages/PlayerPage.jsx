@@ -785,10 +785,10 @@ export default function PlayerPage() {
                       />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-sm text-white line-clamp-1">
+                      <h4 className="font-semibold text-sm text-white line-clamp-2 leading-snug break-words">
                         {song.title}
                       </h4>
-                      <p className="text-xs text-gray-400 truncate">
+                      <p className="text-xs text-gray-400 truncate mt-0.5">
                         {song.artist} • {formatDuration(song.duration)}
                       </p>
                     </div>

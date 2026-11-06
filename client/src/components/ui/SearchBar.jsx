@@ -168,22 +168,22 @@ export default function SearchBar({
   const showDropdown = isOpen && (hasSuggestions || hasRecents)
 
   return (
-    <div ref={containerRef} className="w-full space-y-2.5 relative">
-      {/* Formulario de Búsqueda estilo YouTube */}
-      <form onSubmit={handleSubmit} className="relative w-full">
+    <div ref={containerRef} className="w-full max-w-full space-y-2.5 relative">
+      {/* Formulario de Búsqueda estilo YouTube - Sin desbordes */}
+      <form onSubmit={handleSubmit} className="relative w-full max-w-full">
         <div
-          className={`relative flex items-center w-full bg-[#121212] border transition-all duration-200 rounded-full shadow-lg ${
+          className={`relative flex items-center w-full max-w-full bg-[#121212] border transition-all duration-200 rounded-full shadow-lg ${
             isOpen
               ? 'border-beer-500 ring-2 ring-beer-500/20 shadow-beer/10'
               : 'border-white/15 hover:border-white/25'
           }`}
         >
           {/* Icono de búsqueda izquierdo */}
-          <div className="pl-4 pr-1 flex items-center pointer-events-none text-gray-400">
+          <div className="pl-3.5 sm:pl-4 pr-1 flex items-center pointer-events-none text-gray-400 flex-shrink-0">
             <Search className="w-4 h-4 text-beer-400/90" />
           </div>
 
-          {/* Campo de texto tipo YouTube */}
+          {/* Campo de texto tipo YouTube con flex-1 min-w-0 para evitar desbordes */}
           <input
             ref={inputRef}
             type="search"
@@ -197,18 +197,22 @@ export default function SearchBar({
             onFocus={() => setIsOpen(true)}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
-            className="w-full py-2.5 sm:py-3 px-2 bg-transparent text-white placeholder-gray-400 text-sm sm:text-base focus:outline-none"
+            className="flex-1 min-w-0 py-2.5 sm:py-3 px-2 bg-transparent text-white placeholder-gray-400 text-xs sm:text-sm focus:outline-none"
             autoComplete="off"
             autoCorrect="off"
             autoCapitalize="none"
             spellCheck="false"
           />
 
-          {/* Spinner o Botón de Limpiar ('X') */}
-          <div className="pr-2 flex items-center gap-1.5">
+          {/* Acciones derechas: Símbolo de espera destacado + Botón limpiar + Botón buscar */}
+          <div className="pr-1.5 flex items-center gap-1 flex-shrink-0">
             {isLoading && (
-              <div className="p-1" title="Buscando en YouTube...">
-                <Loader2 className="w-4 h-4 text-beer-400 animate-spin" />
+              <div
+                className="flex items-center gap-1 bg-beer-500/15 border border-beer-500/30 px-2 py-0.5 rounded-full animate-pulse"
+                title="Buscando en YouTube..."
+              >
+                <Loader2 className="w-3.5 h-3.5 text-beer-400 animate-spin" />
+                <span className="text-[10px] text-beer-300 font-bold hidden sm:inline">Buscando</span>
               </div>
             )}
 
@@ -216,27 +220,27 @@ export default function SearchBar({
               <button
                 type="button"
                 onClick={handleClear}
-                className="p-1.5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 active:scale-95 transition-all touch-manipulation"
+                className="p-1.5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 active:scale-95 transition-all touch-manipulation flex-shrink-0"
                 title="Borrar búsqueda"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
             )}
 
-            {/* Botón de lupa derecho estilo YouTube */}
+            {/* Botón de lupa derecho compacto estilo YouTube siempre proporcional */}
             <button
               type="submit"
-              className="hidden xs:flex items-center justify-center px-4 py-2 bg-white/5 hover:bg-white/10 active:bg-beer-500/20 text-gray-300 hover:text-white rounded-r-full border-l border-white/10 transition-colors"
+              className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-beer-500/15 hover:bg-beer-500/25 text-beer-400 active:scale-95 transition-all flex-shrink-0"
               title="Buscar en YouTube"
             >
-              <Search className="w-4 h-4 text-beer-400" />
+              <Search className="w-4 h-4" />
             </button>
           </div>
         </div>
 
         {/* MENÚ DESPLEGABLE FLOTANTE DE AUTOCOMPLETADO ESTILO YOUTUBE */}
         {showDropdown && (
-          <div className="absolute top-full left-0 right-0 z-50 mt-1.5 bg-[#212121]/95 backdrop-blur-xl border border-white/15 rounded-2xl shadow-2xl overflow-hidden animate-scale-up">
+          <div className="absolute top-full left-0 right-0 z-50 mt-1.5 bg-[#212121]/95 backdrop-blur-xl border border-white/15 rounded-2xl shadow-2xl overflow-hidden animate-scale-up max-w-full">
             {/* Cabecera si son búsquedas recientes */}
             {hasRecents && (
               <div className="px-4 py-2 border-b border-white/10 flex items-center justify-between text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
@@ -296,9 +300,9 @@ export default function SearchBar({
         )}
       </form>
 
-      {/* Chips Rápidos de Categorías / Géneros estilo YouTube (Barra de Filtros) */}
+      {/* Chips Rápidos de Categorías / Géneros estilo YouTube (Barra de Filtros sin desbordes) */}
       {chips.length > 0 && (
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1 touch-pan-x">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none w-full max-w-full touch-pan-x">
           {chips.map((chip) => {
             const isSelected = value.toLowerCase() === chip.query.toLowerCase()
             return (

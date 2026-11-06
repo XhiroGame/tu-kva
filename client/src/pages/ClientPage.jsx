@@ -249,6 +249,9 @@ export default function ClientPage() {
       return
     }
 
+    // Mostrar de inmediato el símbolo y pantalla de espera para que la persona sepa que se está buscando
+    setIsSearching(true)
+
     // Debounce ágil de 220ms (no satura y responde de inmediato)
     const timeout = setTimeout(async () => {
       // Cancelar request previo si aún estaba en curso
@@ -256,8 +259,6 @@ export default function ClientPage() {
         activeAbortController.current.abort()
       }
       activeAbortController.current = new AbortController()
-
-      setIsSearching(true)
 
       try {
         const response = await searchSongs(q, {
@@ -283,6 +284,10 @@ export default function ClientPage() {
 
   // Seleccionar chip rápido de género
   const handleSelectGenreChip = (genreQuery) => {
+    const key = genreQuery.toLowerCase()
+    if (!clientSearchCache.current.has(key)) {
+      setIsSearching(true)
+    }
     setSearchQuery(genreQuery)
   }
 
@@ -343,8 +348,8 @@ export default function ClientPage() {
   const isTypingSearch = activeTab === 'search' && searchQuery.trim().length > 0
 
   return (
-    <div className="min-h-screen bg-dark-200 text-white flex flex-col justify-between selection:bg-beer-500 selection:text-black">
-      <div className="w-full max-w-lg mx-auto px-3.5 py-2.5 pb-24 sm:py-5 sm:px-4">
+    <div className="min-h-screen bg-dark-200 text-white flex flex-col justify-between selection:bg-beer-500 selection:text-black w-full max-w-full overflow-x-hidden">
+      <div className="w-full max-w-lg mx-auto px-3.5 py-2.5 pb-24 sm:py-5 sm:px-4 overflow-hidden">
         {/* Cabecera compacta de la mesa */}
         <ClientHeader businessName={businessName} tableName={tableName} />
 
@@ -450,34 +455,38 @@ export default function ClientPage() {
 
             {/* Listado de Canciones o Pantalla de Espera Dinámica mientras busca */}
             {isSearching ? (
-              <div className="space-y-3 animate-fade-in">
-                {/* Tarjeta de espera visual para que el usuario sepa que está buscando */}
-                <div className="card p-5 text-center rounded-2xl bg-dark-50/90 border border-beer-500/40 shadow-lg shadow-beer/10">
-                  <div className="relative w-12 h-12 mx-auto mb-2 flex items-center justify-center">
-                    <Disc3 className="w-12 h-12 text-beer-500 animate-spin" />
-                    <Sparkles className="w-5 h-5 text-yellow-300 absolute -top-1 -right-1 animate-bounce" />
+              <div className="space-y-3 animate-fade-in my-1 w-full max-w-full">
+                {/* Símbolo e Icono de Espera Destacado */}
+                <div className="card p-6 text-center rounded-3xl bg-dark-50/95 border border-beer-500/50 shadow-2xl shadow-beer/15">
+                  <div className="relative w-16 h-16 mx-auto mb-3 flex items-center justify-center">
+                    <Disc3 className="w-16 h-16 text-beer-500 animate-spin" />
+                    <Sparkles className="w-6 h-6 text-yellow-300 absolute -top-1 -right-1 animate-bounce" />
                   </div>
-                  <h4 className="font-bold text-white text-sm sm:text-base font-display">
-                    Buscando en el catálogo...
+                  <h4 className="font-extrabold text-white text-base sm:text-lg font-display flex items-center justify-center gap-2">
+                    <Loader2 className="w-4 h-4 text-beer-400 animate-spin" />
+                    <span>Buscando en YouTube...</span>
                   </h4>
-                  <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">
-                    Consultando canciones para <span className="text-beer-400 font-semibold">"{searchQuery || 'éxitos'}"</span>
+                  <p className="text-xs text-gray-300 mt-1.5 max-w-xs mx-auto">
+                    Consultando canciones para:
                   </p>
+                  <div className="inline-block mt-2 px-3.5 py-1 bg-beer-500/15 border border-beer-500/30 rounded-full text-xs font-bold text-beer-400">
+                    "{searchQuery || 'éxitos'}"
+                  </div>
                 </div>
 
-                {/* Skeletons animados de carga */}
+                {/* Skeletons animados de carga proporcionales para no desbordar */}
                 <div className="space-y-2 opacity-60">
-                  {[1, 2, 3].map((idx) => (
+                  {[1, 2, 3, 4].map((idx) => (
                     <div
                       key={idx}
-                      className="flex items-center p-2.5 gap-2.5 bg-dark-50/60 border border-white/5 rounded-2xl animate-pulse"
+                      className="flex items-center p-2.5 sm:p-3 gap-2.5 sm:gap-3 bg-dark-50/60 border border-white/5 rounded-2xl animate-pulse w-full max-w-full"
                     >
-                      <div className="w-12 h-12 rounded-xl bg-white/10 flex-shrink-0" />
+                      <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-white/10 flex-shrink-0" />
                       <div className="flex-1 space-y-2 min-w-0">
                         <div className="h-3.5 bg-white/10 rounded-md w-3/4" />
                         <div className="h-2.5 bg-white/5 rounded-md w-1/2" />
                       </div>
-                      <div className="w-14 h-9 bg-white/10 rounded-xl flex-shrink-0" />
+                      <div className="w-16 sm:w-20 h-9 sm:h-10 bg-white/10 rounded-xl flex-shrink-0" />
                     </div>
                   ))}
                 </div>
