@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { 
   Play, Pause, SkipForward, Volume2, VolumeX, 
   MonitorSpeaker, Users, Disc3, Radio, RefreshCw,
-  Search, Plus, Zap, X, Loader2
+  Search, Plus, Zap, X, Loader2, LayoutDashboard
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -527,6 +527,16 @@ export default function PlayerPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Botón para volver al Dashboard Administrativo */}
+          <Link
+            to="/admin/dashboard"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-xs font-semibold transition-all border border-white/10"
+            title="Ir al Dashboard de Administración"
+          >
+            <LayoutDashboard className="w-4 h-4 text-beer-400" />
+            <span className="hidden sm:inline">Panel Admin</span>
+          </Link>
+
           {/* Botón para abrir el Buscador del Bar / DJ */}
           <button
             onClick={() => setIsSearchOpen(true)}

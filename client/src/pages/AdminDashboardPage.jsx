@@ -237,26 +237,38 @@ export default function AdminDashboardPage() {
       </header>
 
       {/* Tabs Móviles */}
-      <div className="md:hidden flex border-b border-white/10 bg-dark-100 p-2 gap-2">
-        <button
-          onClick={() => setActiveTab('queue')}
-          className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 ${
-            activeTab === 'queue' ? 'bg-beer-500 text-dark-200' : 'text-gray-400'
-          }`}
-        >
-          <Music className="w-4 h-4" />
-          <span>Playlist ({queue.length})</span>
-        </button>
+      <div className="md:hidden flex flex-col border-b border-white/10 bg-dark-100 p-2 gap-2">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setActiveTab('queue')}
+            className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 ${
+              activeTab === 'queue' ? 'bg-beer-500 text-dark-200' : 'text-gray-400'
+            }`}
+          >
+            <Music className="w-4 h-4" />
+            <span>Playlist ({queue.length})</span>
+          </button>
 
-        <button
-          onClick={() => setActiveTab('tables')}
-          className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 ${
-            activeTab === 'tables' ? 'bg-beer-500 text-dark-200' : 'text-gray-400'
-          }`}
+          <button
+            onClick={() => setActiveTab('tables')}
+            className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 ${
+              activeTab === 'tables' ? 'bg-beer-500 text-dark-200' : 'text-gray-400'
+            }`}
+          >
+            <QrCode className="w-4 h-4" />
+            <span>Mesas QR ({tables.length})</span>
+          </button>
+        </div>
+
+        <Link
+          to={`/player/${businessSlug}`}
+          target="_blank"
+          className="w-full py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 bg-beer-500/15 border border-beer-500/30 text-beer-400 active:scale-98 transition-all"
         >
-          <QrCode className="w-4 h-4" />
-          <span>Mesas QR ({tables.length})</span>
-        </button>
+          <MonitorSpeaker className="w-4 h-4" />
+          <span>Abrir Reproductor Central</span>
+          <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+        </Link>
       </div>
 
       {/* Contenido Principal */}

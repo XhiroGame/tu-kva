@@ -34,10 +34,18 @@ function App() {
             element={<ClientPage />}
           />
 
-          {/* Central music player - runs on venue computer */}
+          {/* Central music player - solo accesible si se ha iniciado sesión en el Dashboard */}
+          <Route
+            path="/player"
+            element={<Navigate to="/player/tu-kva" replace />}
+          />
           <Route
             path="/player/:businessSlug"
-            element={<PlayerPage />}
+            element={
+              <ProtectedRoute>
+                <PlayerPage />
+              </ProtectedRoute>
+            }
           />
 
           {/* Admin authentication */}
