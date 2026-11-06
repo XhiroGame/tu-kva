@@ -36,7 +36,7 @@ function setToMemoryCache(key, data) {
 export async function searchSongs(req, res) {
   try {
     const query = (req.query.q || '').trim()
-    const limit = Math.min(parseInt(req.query.limit, 10) || 15, 25)
+    const limit = Math.min(parseInt(req.query.limit, 10) || 30, 45)
     const offset = parseInt(req.query.offset, 10) || 0
 
     // Si la búsqueda está vacía, retornar catálogo inicial sugerido
@@ -45,11 +45,13 @@ export async function searchSongs(req, res) {
     // 1. Revisar caché en memoria (Respuesta instantánea en < 5ms)
     const memoryCached = getFromMemoryCache(normalizedKey)
     if (memoryCached && memoryCached.length > 0) {
+      // Filtrar estrictamente menos de 10 minutos (600s)
+      const validCached = memoryCached.filter((s) => s.duration && s.duration < 600 && s.duration > 30)
       return res.json({
         success: true,
         source: 'memory_cache',
-        count: memoryCached.length,
-        data: memoryCached.slice(0, limit),
+        count: validCached.length,
+        data: validCached.slice(0, limit),
       })
     }
 
@@ -62,12 +64,12 @@ export async function searchSongs(req, res) {
         .from('songs')
         .select('*')
         .eq('provider', 'youtube')
-        .lte('duration', 600)
-        .gt('duration', 60)
+        .lt('duration', 600)
+        .gt('duration', 45)
         .order('created_at', { ascending: false })
         .limit(limit)
 
-      if (popularDbSongs && popularDbSongs.length >= 8) {
+      if (popularDbSongs && popularDbSongs.length >= 10) {
         results = popularDbSongs
       } else {
         results = await musicProvider.search('exitos populares musica bar canciones', { limit })
@@ -79,11 +81,11 @@ export async function searchSongs(req, res) {
           .from('songs')
           .select('*')
           .or(`title.ilike.%${query}%,artist.ilike.%${query}%`)
-          .lte('duration', 600)
+          .lt('duration', 600)
           .gt('duration', 45)
           .limit(limit)
 
-        if (dbMatches && dbMatches.length >= 6) {
+        if (dbMatches && dbMatches.length >= 8) {
           results = dbMatches
         }
       }
@@ -94,12 +96,18 @@ export async function searchSongs(req, res) {
       }
     }
 
+    // Filtrar estrictamente: solo canciones con duración válida y MENORES a 10 minutos (600s)
+    const strictFilteredResults = results.filter((song) => {
+      const d = song.duration || 0
+      return d > 30 && d < 600
+    })
+
     // 5. Guardar en caché en memoria para que las próximas consultas sean instantáneas
-    if (results.length > 0) {
-      setToMemoryCache(normalizedKey, results)
+    if (strictFilteredResults.length > 0) {
+      setToMemoryCache(normalizedKey, strictFilteredResults)
 
       // 6. Cachear de forma asíncrona en Supabase (tabla songs) en segundo plano
-      const songsToUpsert = results.map((song) => ({
+      const songsToUpsert = strictFilteredResults.map((song) => ({
         provider: song.provider,
         provider_song_id: String(song.provider_song_id),
         title: song.title,
@@ -121,8 +129,8 @@ export async function searchSongs(req, res) {
     return res.json({
       success: true,
       query,
-      count: results.length,
-      data: results.slice(0, limit),
+      count: strictFilteredResults.length,
+      data: strictFilteredResults.slice(0, limit),
     })
   } catch (error) {
     console.error('[Search Songs Error]', error)

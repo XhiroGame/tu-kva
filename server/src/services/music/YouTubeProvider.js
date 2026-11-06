@@ -12,31 +12,49 @@ class YouTubeProvider extends MusicProvider {
 
   /**
    * Busca canciones en YouTube
-   * Prioriza canciones individuales oficiales para evitar bloqueos de copyright
-   * @param {string} query - Término de búsqueda (ej: "Bohemian Rhapsody", "Bad Bunny")
-   * @param {object} options - { limit: 20 }
+   * Regla estricta: ÚNICAMENTE canciones de menos de 10 minutos (duración < 600 segundos)
+   * @param {string} query - Término de búsqueda
+   * @param {object} options - { limit: 30 }
    */
   async search(query, options = {}) {
-    const limit = Math.min(options.limit || 20, 30)
+    const limit = Math.min(options.limit || 30, 45)
 
     try {
-      // Limpiar query de términos que generen mixes bloqueados
-      const cleanQuery = query.replace(/\bmix\b|\b2025\b|\blive\b/gi, '').trim()
-      const searchPrompt = `${cleanQuery || query} official audio`
+      // Limpiar query de términos que generen mixes, directos o recopilaciones largas
+      const cleanQuery = query.replace(/\bmix\b|\b2025\b|\b2026\b|\blive\b|\bcompleto\b|\bfull album\b|\bdisco completo\b/gi, '').trim()
+      const searchPrompt = `${cleanQuery || query} official audio track`
       const searchResults = await ytSearch(searchPrompt)
       const videos = searchResults?.videos || []
 
-      // Filtrar videos: dar preferencia a temas individuales (entre 45 seg y 10 minutos)
-      // para evitar DJ sets y mixes largos que suelen tener bloqueos de embedding (LatinAutor / UMPG)
-      const validVideos = videos.filter((video) => {
+      // Filtrado estricto: estrictamente MENOS de 10 minutos (600 segundos) y más de 30 segundos
+      const MAX_SECONDS = 599 // Menos de 10 minutos
+      const MIN_SECONDS = 30
+
+      const validSongs = videos.filter((video) => {
         const seconds = video.seconds || (video.duration?.seconds || 0)
+        // Descartar videos sin duración, livestreams o canciones de 10 min o más
+        if (!seconds || seconds <= MIN_SECONDS || seconds > MAX_SECONDS) {
+          return false
+        }
+
         const titleLower = (video.title || '').toLowerCase()
-        const isDjMix = titleLower.includes('dj set') || titleLower.includes('full album')
-        return seconds >= 45 && seconds <= 600 && !isDjMix
+        const isLongMix =
+          titleLower.includes('mix') ||
+          titleLower.includes('full album') ||
+          titleLower.includes('dj set') ||
+          titleLower.includes('1 hour') ||
+          titleLower.includes('2 hours') ||
+          titleLower.includes('completo')
+
+        // Si el título indica mix y dura más de 6 minutos, descartar
+        if (isLongMix && seconds > 360) {
+          return false
+        }
+
+        return true
       })
 
-      const listToUse = validVideos.length > 0 ? validVideos : videos
-      return listToUse.slice(0, limit).map((video) => this.normalize(video))
+      return validSongs.slice(0, limit).map((video) => this.normalize(video))
     } catch (error) {
       console.error('[YouTubeProvider Error]', error)
       throw new Error('Error al buscar en el catálogo de YouTube')

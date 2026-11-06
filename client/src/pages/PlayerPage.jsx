@@ -298,9 +298,10 @@ export default function PlayerPage() {
     setIsSearching(true)
     const timeout = setTimeout(async () => {
       try {
-        const res = await searchSongs(searchQuery.trim(), { limit: 12 })
+        const res = await searchSongs(searchQuery.trim(), { limit: 30 })
         if (res?.data) {
-          setSearchResults(res.data)
+          const filtered = res.data.filter((s) => s.duration > 30 && s.duration < 600)
+          setSearchResults(filtered)
         }
       } catch (err) {
         console.warn('Search error:', err)

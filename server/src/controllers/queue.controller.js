@@ -1,5 +1,21 @@
 import supabaseAdmin from '../config/supabase.js'
 
+// Memoria para rastrear solicitudes por dispositivo e IP (ventana de 10 minutos)
+const deviceRequestsMap = new Map()
+
+// Limpieza periódica cada 15 minutos para evitar acumulación en memoria
+setInterval(() => {
+  const cutoff = Date.now() - 10 * 60 * 1000
+  for (const [key, timestamps] of deviceRequestsMap.entries()) {
+    const valid = timestamps.filter((t) => t > cutoff)
+    if (valid.length === 0) {
+      deviceRequestsMap.delete(key)
+    } else {
+      deviceRequestsMap.set(key, valid)
+    }
+  }
+}, 15 * 60 * 1000)
+
 /**
  * GET /api/queue/:businessSlug
  * Obtiene la lista actual de canciones en cola y la canción en reproducción
@@ -70,7 +86,7 @@ export async function getQueue(req, res) {
  */
 export async function addToQueue(req, res) {
   try {
-    const { businessSlug, qrToken, song } = req.body
+    const { businessSlug, qrToken, song, deviceId } = req.body
 
     if (!song || !song.provider_song_id) {
       return res.status(400).json({ success: false, message: 'Datos de canción incompletos' })
@@ -128,20 +144,45 @@ export async function addToQueue(req, res) {
       })
     }
 
-    // 5. Regla de Cooldown Antimonopolio: Máximo 3 pedidos por mesa en los últimos 5 minutos
-    if (tableId) {
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
-      const { data: recentRequests } = await supabaseAdmin
-        .from('playlist_queue')
-        .select('id')
-        .eq('business_id', business.id)
-        .eq('table_id', tableId)
-        .gte('requested_at', fiveMinutesAgo)
+    // 5. Regla Antimonopolio: Límite estricto de 2 canciones por dispositivo o mesa cada 10 minutos
+    const isClientOrder = Boolean(qrToken || deviceId)
+    const clientIp = req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown-ip'
+    const deviceKey = deviceId ? `dev:${deviceId}` : `ip:${clientIp}`
+    const tenMinutesMs = 10 * 60 * 1000
+    const now = Date.now()
 
-      if (recentRequests && recentRequests.length >= 3) {
+    if (isClientOrder) {
+      // 5.a Por Código QR / Mesa en Base de Datos (máx 2 canciones en 10 min por mesa)
+      if (tableId) {
+        const tenMinutesAgo = new Date(now - tenMinutesMs).toISOString()
+        const { data: recentRequests } = await supabaseAdmin
+          .from('playlist_queue')
+          .select('id, requested_at')
+          .eq('business_id', business.id)
+          .eq('table_id', tableId)
+          .gte('requested_at', tenMinutesAgo)
+          .order('requested_at', { ascending: true })
+
+        if (recentRequests && recentRequests.length >= 2) {
+          const oldestTime = new Date(recentRequests[0].requested_at).getTime()
+          const minutesRemaining = Math.max(1, Math.ceil((oldestTime + tenMinutesMs - now) / 60000))
+          return res.status(429).json({
+            success: false,
+            message: `Límite alcanzado: Máximo 2 canciones cada 10 minutos por mesa. Podrán pedir otra en aprox. ${minutesRemaining} min.`,
+            minutesRemaining,
+          })
+        }
+      }
+
+      // 5.b Por Dispositivo Móvil en Memoria (máx 2 canciones en 10 min por teléfono/dispositivo)
+      const currentTimestamps = (deviceRequestsMap.get(deviceKey) || []).filter((t) => t > now - tenMinutesMs)
+      if (currentTimestamps.length >= 2) {
+        const oldestTime = currentTimestamps[0]
+        const minutesRemaining = Math.max(1, Math.ceil((oldestTime + tenMinutesMs - now) / 60000))
         return res.status(429).json({
           success: false,
-          message: 'Límite de pedidos alcanzado (máx 3 canciones cada 5 min). ¡Da oportunidad a otras mesas!',
+          message: `Has alcanzado el límite de 2 canciones cada 10 minutos desde este dispositivo. Podrás pedir otra en aprox. ${minutesRemaining} min.`,
+          minutesRemaining,
         })
       }
     }
@@ -198,6 +239,13 @@ export async function addToQueue(req, res) {
       .single()
 
     if (queueError) throw queueError
+
+    // 9. Registrar pedido en el historial en memoria del dispositivo
+    if (isClientOrder) {
+      const valid = (deviceRequestsMap.get(deviceKey) || []).filter((t) => t > now - tenMinutesMs)
+      valid.push(now)
+      deviceRequestsMap.set(deviceKey, valid)
+    }
 
     return res.json({
       success: true,
