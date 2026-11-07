@@ -11,7 +11,7 @@ class YouTubeProvider extends MusicProvider {
   }
 
   /**
-   * Busca canciones en YouTube con timeout rápido y filtrado estricto
+   * Busca canciones en YouTube
    * Regla estricta: ÚNICAMENTE canciones de menos de 10 minutos (duración < 600 segundos)
    * @param {string} query - Término de búsqueda
    * @param {object} options - { limit: 30 }
@@ -20,23 +20,10 @@ class YouTubeProvider extends MusicProvider {
     const limit = Math.min(options.limit || 30, 45)
 
     try {
-      // Limpiar query de términos que generen mixes, directos o recopilaciones largas
-      const cleanQuery = query
-        .replace(/\bmix\b|\bcompleto\b|\bfull album\b|\bdisco completo\b|\b1 hour\b|\b2 hours\b/gi, '')
-        .replace(/\s+/g, ' ')
-        .trim()
+      // Limpiar query de términos que generen mixes o recopilaciones largas
+      const cleanQuery = query.replace(/\bmix\b|\b2025\b|\b2026\b|\blive\b|\bcompleto\b|\bfull album\b|\bdisco completo\b/gi, '').trim()
       const searchPrompt = cleanQuery || query
-
-      // Timeout holgado de 8 segundos para servidores cloud sin cortar búsquedas válidas
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('YouTube search timeout')), 8000)
-      )
-
-      const searchResults = await Promise.race([
-        ytSearch(searchPrompt),
-        timeoutPromise,
-      ])
-
+      const searchResults = await ytSearch(searchPrompt)
       const videos = searchResults?.videos || []
 
       // Filtrado estricto: estrictamente MENOS de 10 minutos (600 segundos) y más de 30 segundos
@@ -69,8 +56,8 @@ class YouTubeProvider extends MusicProvider {
 
       return validSongs.slice(0, limit).map((video) => this.normalize(video))
     } catch (error) {
-      console.warn('[YouTubeProvider Warning]', error.message)
-      return []
+      console.error('[YouTubeProvider Error]', error)
+      throw new Error('Error al buscar en el catálogo de YouTube')
     }
   }
 

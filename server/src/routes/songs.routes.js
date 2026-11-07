@@ -1,13 +1,7 @@
 import { Router } from 'express'
-import { searchSongs, getSmartFallbackSongs, getSongSuggestions } from '../controllers/songs.controller.js'
+import { searchSongs, getSmartFallbackSongs } from '../controllers/songs.controller.js'
 
 const router = Router()
-
-/**
- * GET /api/songs/suggestions?q=...
- * Autocompletado oficial de YouTube
- */
-router.get('/suggestions', getSongSuggestions)
 
 /**
  * GET /api/songs/search?q=nombre&limit=20&offset=0

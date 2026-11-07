@@ -8,7 +8,6 @@ import {
 import toast from 'react-hot-toast'
 
 import Logo from '@/components/ui/Logo'
-import SearchBar from '@/components/ui/SearchBar'
 import { formatDuration } from '@/components/queue/SongCard'
 import { getQueue, updateQueueItem, getSmartFallback, searchSongs, addToQueue } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
@@ -38,8 +37,6 @@ export default function PlayerPage() {
   const lastEndedVideoIdRef = useRef(null)
   const recentPlayedIdsRef = useRef([])
   const handleTrackEndedRef = useRef(null)
-  const playerSearchCache = useRef(new Map())
-  const searchAbortController = useRef(null)
 
   // Mantener referencias sincronizadas con el estado actual
   useEffect(() => {
@@ -290,47 +287,28 @@ export default function PlayerPage() {
     }
   }
 
-  // 4. Búsqueda ultra-rápida para el personal del bar (Caché local 0ms + AbortController)
+  // 4. Búsqueda para el personal del bar
   useEffect(() => {
-    const q = searchQuery.trim()
-    if (!q) {
+    if (!searchQuery.trim()) {
       setSearchResults([])
       setIsSearching(false)
       return
     }
 
-    const key = q.toLowerCase()
-    if (playerSearchCache.current.has(key)) {
-      setSearchResults(playerSearchCache.current.get(key))
-      setIsSearching(false)
-      return
-    }
-
+    setIsSearching(true)
     const timeout = setTimeout(async () => {
-      if (searchAbortController.current) {
-        searchAbortController.current.abort()
-      }
-      searchAbortController.current = new AbortController()
-
-      setIsSearching(true)
       try {
-        const res = await searchSongs(q, {
-          limit: 30,
-          signal: searchAbortController.current.signal,
-        })
+        const res = await searchSongs(searchQuery.trim(), { limit: 30 })
         if (res?.data) {
           const filtered = res.data.filter((s) => s.duration > 30 && s.duration < 600)
-          playerSearchCache.current.set(key, filtered)
           setSearchResults(filtered)
         }
       } catch (err) {
-        if (err.name !== 'AbortError') {
-          console.warn('Search error:', err)
-        }
+        console.warn('Search error:', err)
       } finally {
         setIsSearching(false)
       }
-    }, 450)
+    }, 350)
 
     return () => clearTimeout(timeout)
   }, [searchQuery])
@@ -745,33 +723,27 @@ export default function PlayerPage() {
               </button>
             </div>
 
-            {/* Input de Búsqueda estilo YouTube */}
+            {/* Input de Búsqueda */}
             <div className="p-4 border-b border-white/10 bg-dark-50">
-              <SearchBar
-                value={searchQuery}
-                onChange={setSearchQuery}
-                onClear={() => setSearchQuery('')}
-                onSearch={(term) => setSearchQuery(term)}
-                isLoading={isSearching}
-                placeholder="Buscar cualquier canción, artista o género en YouTube..."
-              />
+              <div className="relative">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-beer-500" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Buscar cualquier canción, artista o género para el bar..."
+                  className="input-field pl-11 py-3.5 text-base"
+                  autoFocus
+                />
+                {isSearching && (
+                  <Loader2 className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-beer-500 animate-spin" />
+                )}
+              </div>
             </div>
 
             {/* Resultados de Búsqueda */}
             <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
-              {isSearching ? (
-                <div className="py-14 text-center animate-fade-in">
-                  <div className="relative w-12 h-12 mx-auto mb-3 flex items-center justify-center">
-                    <Disc3 className="w-12 h-12 text-beer-500 animate-spin" />
-                  </div>
-                  <h4 className="font-bold text-white text-base font-display">
-                    Buscando en YouTube...
-                  </h4>
-                  <p className="text-xs text-gray-400 mt-1 max-w-sm mx-auto">
-                    Consultando canciones para <span className="text-beer-400 font-semibold">"{searchQuery}"</span>
-                  </p>
-                </div>
-              ) : searchResults.length > 0 ? (
+              {searchResults.length > 0 ? (
                 searchResults.map((song) => (
                   <div
                     key={song.provider_song_id}
@@ -785,10 +757,10 @@ export default function PlayerPage() {
                       />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-sm text-white line-clamp-2 leading-snug break-words">
+                      <h4 className="font-semibold text-sm text-white line-clamp-1">
                         {song.title}
                       </h4>
-                      <p className="text-xs text-gray-400 truncate mt-0.5">
+                      <p className="text-xs text-gray-400 truncate">
                         {song.artist} • {formatDuration(song.duration)}
                       </p>
                     </div>

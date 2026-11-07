@@ -166,34 +166,9 @@ export default function ClientPage() {
     }
   }, [businessSlug])
 
-  // 3. Catálogo sugerido al cargar y precarga silenciosa de géneros populares
+  // 3. Catálogo sugerido al cargar
   useEffect(() => {
     loadSuggestedSongs()
-
-    // Precargar géneros populares silenciosamente en caché para respuesta en 0ms
-    const prefetchTimer = setTimeout(async () => {
-      const topGenres = [
-        'exitos populares canciones',
-        'reggaeton exitos',
-        'salsa clasica exitos',
-      ]
-      for (const gQuery of topGenres) {
-        const key = gQuery.toLowerCase()
-        if (!clientSearchCache.current.has(key)) {
-          try {
-            const res = await searchSongs(gQuery, { limit: 25 })
-            if (res?.data) {
-              const filtered = res.data.filter((s) => s.duration > 30 && s.duration < 600)
-              clientSearchCache.current.set(key, filtered)
-            }
-          } catch {
-            // Silencioso
-          }
-        }
-      }
-    }, 2000)
-
-    return () => clearTimeout(prefetchTimer)
   }, [])
 
   const loadSuggestedSongs = async () => {
@@ -218,9 +193,9 @@ export default function ClientPage() {
     }
   }
 
-  // 4. Búsqueda optimizada estilo YouTube con ejecución limpia (sin lag al escribir)
-  const executeSearch = async (term) => {
-    const q = (term ?? searchQuery).trim()
+  // 4. Función de búsqueda centralizada
+  const performSearch = async (queryText) => {
+    const q = (queryText || '').trim()
     if (!q) {
       loadSuggestedSongs()
       return
@@ -228,20 +203,19 @@ export default function ClientPage() {
 
     const cacheKey = q.toLowerCase()
 
-    // Respuesta instantánea en 0ms si ya está en caché local
+    // Respuesta inmediata desde caché local en memoria
     if (clientSearchCache.current.has(cacheKey)) {
       setSearchResults(clientSearchCache.current.get(cacheKey))
       setIsSearching(false)
       return
     }
 
-    // Cancelar request previo si aún estaba en curso
+    // Cancelar consulta previa en curso
     if (activeAbortController.current) {
       activeAbortController.current.abort()
     }
     activeAbortController.current = new AbortController()
 
-    // Activar el símbolo visual de espera ahora que realmente arranca la consulta
     setIsSearching(true)
 
     try {
@@ -253,17 +227,19 @@ export default function ClientPage() {
         const filtered = response.data.filter((s) => s.duration > 30 && s.duration < 600)
         clientSearchCache.current.set(cacheKey, filtered)
         setSearchResults(filtered)
+      } else {
+        setSearchResults([])
       }
     } catch (error) {
       if (error.name !== 'AbortError') {
-        console.warn('Error consultando canciones:', error)
+        console.warn('Error al buscar canciones:', error)
       }
     } finally {
       setIsSearching(false)
     }
   }
 
-  // Debounce suave de 450ms al escribir (evita congelamiento del teclado)
+  // 5. Búsqueda en vivo optimizada con Debounce (NO bloquea el teclado al escribir)
   useEffect(() => {
     const q = searchQuery.trim()
     if (!q) {
@@ -278,20 +254,21 @@ export default function ClientPage() {
       return
     }
 
-    const timeout = setTimeout(() => {
-      executeSearch(q)
-    }, 450)
+    // Esperar 320ms sin escribir antes de activar el indicador de búsqueda y consultar
+    const timer = setTimeout(() => {
+      performSearch(q)
+    }, 320)
 
-    return () => clearTimeout(timeout)
+    return () => clearTimeout(timer)
   }, [searchQuery])
 
-  // Seleccionar chip rápido de género
-  const handleSelectGenreChip = (genreQuery) => {
-    setSearchQuery(genreQuery)
-    executeSearch(genreQuery)
+  // Búsqueda inmediata al pulsar Enter o tocar un chip de género
+  const handleImmediateSearch = (queryText) => {
+    setSearchQuery(queryText)
+    performSearch(queryText)
   }
 
-  // 5. Enviar pedido a la base de datos real con control antimonopolio (2 canciones cada 10 min)
+  // 6. Enviar pedido a la base de datos real con control antimonopolio (2 canciones cada 10 min)
   const handleAddSong = async (song) => {
     const currentRecent = getRecentRequests()
     if (currentRecent.length >= 2) {
@@ -348,8 +325,8 @@ export default function ClientPage() {
   const isTypingSearch = activeTab === 'search' && searchQuery.trim().length > 0
 
   return (
-    <div className="min-h-screen bg-dark-200 text-white flex flex-col justify-between selection:bg-beer-500 selection:text-black w-full max-w-full overflow-x-hidden">
-      <div className="w-full max-w-lg mx-auto px-3.5 py-2.5 pb-24 sm:py-5 sm:px-4 overflow-hidden">
+    <div className="min-h-screen bg-dark-200 text-white flex flex-col justify-between selection:bg-beer-500 selection:text-black w-full overflow-x-hidden">
+      <div className="w-full max-w-lg mx-auto px-3.5 py-2.5 pb-24 sm:py-5 sm:px-4">
         {/* Cabecera compacta de la mesa */}
         <ClientHeader businessName={businessName} tableName={tableName} />
 
@@ -422,16 +399,16 @@ export default function ClientPage() {
 
         {/* PESTAÑA 1: BUSCADOR DE CANCIONES */}
         {activeTab === 'search' && (
-          <div className="space-y-3 animate-fade-in">
+          <div className="space-y-3 animate-fade-in w-full max-w-full">
             {/* Barra de Búsqueda con Chips Rápidos */}
             <SearchBar
               value={searchQuery}
               onChange={setSearchQuery}
-              onSearch={executeSearch}
+              onSearch={handleImmediateSearch}
               onClear={() => setSearchQuery('')}
               isLoading={isSearching}
               chips={QUICK_GENRES}
-              onSelectChip={handleSelectGenreChip}
+              onSelectChip={handleImmediateSearch}
             />
 
             {/* Subtítulo de estado de resultados */}
@@ -442,37 +419,27 @@ export default function ClientPage() {
                   {searchQuery ? 'Resultados' : 'Canciones Recomendadas'}
                 </span>
               </div>
-              <div className="text-[11px] text-gray-500">
-                {isSearching ? (
-                  <span className="flex items-center gap-1.5 text-beer-400 font-bold">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Buscando canciones...</span>
-                  </span>
-                ) : (
-                  <span>{searchResults.length} canciones</span>
-                )}
-              </div>
+              <span className="text-[11px] text-gray-500">
+                {isSearching ? 'Buscando...' : `${searchResults.length} canciones`}
+              </span>
             </div>
 
-            {/* Listado de Canciones o Pantalla de Espera Dinámica mientras busca */}
+            {/* Pantalla de Espera Visual mientras busca */}
             {isSearching ? (
               <div className="space-y-3 animate-fade-in my-1 w-full max-w-full">
                 {/* Símbolo e Icono de Espera Destacado */}
-                <div className="card p-6 text-center rounded-3xl bg-dark-50/95 border border-beer-500/50 shadow-2xl shadow-beer/15">
-                  <div className="relative w-16 h-16 mx-auto mb-3 flex items-center justify-center">
-                    <Disc3 className="w-16 h-16 text-beer-500 animate-spin" />
-                    <Sparkles className="w-6 h-6 text-yellow-300 absolute -top-1 -right-1 animate-bounce" />
+                <div className="card p-5 text-center rounded-2xl bg-dark-50/95 border border-beer-500/40 shadow-xl shadow-beer/10">
+                  <div className="relative w-12 h-12 mx-auto mb-2.5 flex items-center justify-center">
+                    <Disc3 className="w-12 h-12 text-beer-500 animate-spin" />
+                    <Sparkles className="w-4 h-4 text-yellow-300 absolute -top-1 -right-1 animate-bounce" />
                   </div>
-                  <h4 className="font-extrabold text-white text-base sm:text-lg font-display flex items-center justify-center gap-2">
+                  <h4 className="font-bold text-white text-sm sm:text-base flex items-center justify-center gap-2">
                     <Loader2 className="w-4 h-4 text-beer-400 animate-spin" />
-                    <span>Buscando en YouTube...</span>
+                    <span>Buscando canciones...</span>
                   </h4>
-                  <p className="text-xs text-gray-300 mt-1.5 max-w-xs mx-auto">
-                    Consultando canciones para:
+                  <p className="text-xs text-gray-400 mt-1">
+                    Buscando: <span className="text-beer-400 font-semibold font-mono">"{searchQuery || 'éxitos'}"</span>
                   </p>
-                  <div className="inline-block mt-2 px-3.5 py-1 bg-beer-500/15 border border-beer-500/30 rounded-full text-xs font-bold text-beer-400">
-                    "{searchQuery || 'éxitos'}"
-                  </div>
                 </div>
 
                 {/* Skeletons animados de carga proporcionales para no desbordar */}

@@ -29,28 +29,6 @@ function setToMemoryCache(key, data) {
   })
 }
 
-// Precalentamiento de búsquedas frecuentes en segundo plano para respuesta instantánea (0ms)
-setTimeout(async () => {
-  const commonGenres = [
-    '__default_populares__',
-    'rock clasico exitos',
-    'exitos populares canciones',
-    'reggaeton exitos',
-    'salsa clasica exitos',
-  ]
-  for (const term of commonGenres) {
-    try {
-      const q = term === '__default_populares__' ? 'exitos populares canciones' : term
-      const songs = await musicProvider.search(q, { limit: 30 })
-      if (songs && songs.length > 0) {
-        setToMemoryCache(term, songs)
-      }
-    } catch {
-      // Precalentamiento silencioso
-    }
-  }
-}, 4000)
-
 /**
  * GET /api/songs/search
  * Busca canciones por término (query) con caché en memoria ultra-rápido y caché en base de datos
@@ -97,26 +75,24 @@ export async function searchSongs(req, res) {
         results = await musicProvider.search('exitos populares musica bar canciones', { limit })
       }
     } else {
-      // 3. Ejecución ultra-rápida en paralelo: consultar YouTube y la base de datos simultáneamente
-      const ytPromise = musicProvider.search(query, { limit, offset })
-      const dbPromise = query.length >= 2
-        ? supabaseAdmin
-            .from('songs')
-            .select('*')
-            .or(`title.ilike.%${query}%,artist.ilike.%${query}%`)
-            .lt('duration', 600)
-            .gt('duration', 30)
-            .limit(15)
-        : Promise.resolve({ data: [] })
+      // 3. Buscar en Supabase por si ya fue buscada antes (coincidencia rápida en BD)
+      if (query.length >= 3) {
+        const { data: dbMatches } = await supabaseAdmin
+          .from('songs')
+          .select('*')
+          .or(`title.ilike.%${query}%,artist.ilike.%${query}%`)
+          .lt('duration', 600)
+          .gt('duration', 45)
+          .limit(limit)
 
-      const [ytRes, dbRes] = await Promise.allSettled([ytPromise, dbPromise])
-      const ytSongs = ytRes.status === 'fulfilled' ? ytRes.value || [] : []
-      const dbSongs = dbRes.status === 'fulfilled' && dbRes.value?.data ? dbRes.value.data : []
+        if (dbMatches && dbMatches.length >= 8) {
+          results = dbMatches
+        }
+      }
 
-      if (ytSongs.length > 0) {
-        results = ytSongs
-      } else if (dbSongs.length > 0) {
-        results = dbSongs
+      // 4. Si aún no hay suficientes resultados locales, buscar en YouTube
+      if (results.length === 0) {
+        results = await musicProvider.search(query, { limit, offset })
       }
     }
 
@@ -311,44 +287,5 @@ export async function getSmartFallbackSongs(req, res) {
   } catch (error) {
     console.error('[Smart Fallback Error]', error)
     return res.status(500).json({ success: false, message: error.message })
-  }
-}
-
-/**
- * GET /api/songs/suggestions?q=...
- * Obtiene sugerencias de autocompletado en tiempo real estilo YouTube (ultrarrápido)
- */
-export async function getSongSuggestions(req, res) {
-  try {
-    const q = (req.query.q || '').trim()
-    if (!q) {
-      return res.json({ success: true, data: [] })
-    }
-
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 1500)
-
-    const url = `https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q=${encodeURIComponent(q)}`
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      },
-    })
-    clearTimeout(timeout)
-
-    const json = await response.json()
-    const rawSuggestions = Array.isArray(json?.[1]) ? json[1] : []
-
-    const cleanSuggestions = rawSuggestions
-      .filter((item) => typeof item === 'string' && item.trim().length > 0)
-      .slice(0, 8)
-
-    return res.json({
-      success: true,
-      data: cleanSuggestions,
-    })
-  } catch (error) {
-    return res.json({ success: true, data: [] })
   }
 }
