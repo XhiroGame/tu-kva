@@ -330,7 +330,7 @@ export default function PlayerPage() {
       } finally {
         setIsSearching(false)
       }
-    }, 220)
+    }, 450)
 
     return () => clearTimeout(timeout)
   }, [searchQuery])

@@ -218,9 +218,9 @@ export default function ClientPage() {
     }
   }
 
-  // 4. Búsqueda en vivo ultra-rápida con Debounce + Caché 0ms + AbortController
-  useEffect(() => {
-    const q = searchQuery.trim()
+  // 4. Búsqueda optimizada estilo YouTube con ejecución limpia (sin lag al escribir)
+  const executeSearch = async (term) => {
+    const q = (term ?? searchQuery).trim()
     if (!q) {
       loadSuggestedSongs()
       return
@@ -235,60 +235,60 @@ export default function ClientPage() {
       return
     }
 
-    // Si solo hay 1 caracter, filtrar localmente sin demorar con peticiones de red
-    if (q.length === 1) {
-      const defaultCatalog = clientSearchCache.current.get('__default_catalog__') || []
-      const localMatches = defaultCatalog.filter(
-        (s) =>
-          s.title.toLowerCase().includes(cacheKey) ||
-          s.artist.toLowerCase().includes(cacheKey)
-      )
-      if (localMatches.length > 0) {
-        setSearchResults(localMatches)
+    // Cancelar request previo si aún estaba en curso
+    if (activeAbortController.current) {
+      activeAbortController.current.abort()
+    }
+    activeAbortController.current = new AbortController()
+
+    // Activar el símbolo visual de espera ahora que realmente arranca la consulta
+    setIsSearching(true)
+
+    try {
+      const response = await searchSongs(q, {
+        limit: 30,
+        signal: activeAbortController.current.signal,
+      })
+      if (response?.data) {
+        const filtered = response.data.filter((s) => s.duration > 30 && s.duration < 600)
+        clientSearchCache.current.set(cacheKey, filtered)
+        setSearchResults(filtered)
       }
+    } catch (error) {
+      if (error.name !== 'AbortError') {
+        console.warn('Error consultando canciones:', error)
+      }
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
+  // Debounce suave de 450ms al escribir (evita congelamiento del teclado)
+  useEffect(() => {
+    const q = searchQuery.trim()
+    if (!q) {
+      loadSuggestedSongs()
       return
     }
 
-    // Mostrar de inmediato el símbolo y pantalla de espera para que la persona sepa que se está buscando
-    setIsSearching(true)
+    const cacheKey = q.toLowerCase()
+    if (clientSearchCache.current.has(cacheKey)) {
+      setSearchResults(clientSearchCache.current.get(cacheKey))
+      setIsSearching(false)
+      return
+    }
 
-    // Debounce ágil de 220ms (no satura y responde de inmediato)
-    const timeout = setTimeout(async () => {
-      // Cancelar request previo si aún estaba en curso
-      if (activeAbortController.current) {
-        activeAbortController.current.abort()
-      }
-      activeAbortController.current = new AbortController()
-
-      try {
-        const response = await searchSongs(q, {
-          limit: 30,
-          signal: activeAbortController.current.signal,
-        })
-        if (response?.data) {
-          const filtered = response.data.filter((s) => s.duration > 30 && s.duration < 600)
-          clientSearchCache.current.set(cacheKey, filtered)
-          setSearchResults(filtered)
-        }
-      } catch (error) {
-        if (error.name !== 'AbortError') {
-          console.warn('Error consultando canciones:', error)
-        }
-      } finally {
-        setIsSearching(false)
-      }
-    }, 220)
+    const timeout = setTimeout(() => {
+      executeSearch(q)
+    }, 450)
 
     return () => clearTimeout(timeout)
   }, [searchQuery])
 
   // Seleccionar chip rápido de género
   const handleSelectGenreChip = (genreQuery) => {
-    const key = genreQuery.toLowerCase()
-    if (!clientSearchCache.current.has(key)) {
-      setIsSearching(true)
-    }
     setSearchQuery(genreQuery)
+    executeSearch(genreQuery)
   }
 
   // 5. Enviar pedido a la base de datos real con control antimonopolio (2 canciones cada 10 min)
@@ -427,6 +427,7 @@ export default function ClientPage() {
             <SearchBar
               value={searchQuery}
               onChange={setSearchQuery}
+              onSearch={executeSearch}
               onClear={() => setSearchQuery('')}
               isLoading={isSearching}
               chips={QUICK_GENRES}
