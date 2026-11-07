@@ -2,7 +2,7 @@ import React, { useRef } from 'react'
 import { Search, X, Loader2 } from 'lucide-react'
 
 /**
- * SearchBar - Barra de búsqueda responsiva y ágil sin lag ni desbordes
+ * SearchBar - Barra de búsqueda responsiva, sin doble X y con indicador de carga visible
  */
 export default function SearchBar({
   value,
@@ -38,10 +38,10 @@ export default function SearchBar({
           <Search className="w-4 h-4 sm:w-5 sm:h-5 text-beer-500/80" />
         </div>
 
-        {/* Input nativo con enterKeyHint="search" */}
+        {/* Input tipo text para evitar la doble 'X' nativa de WebKit */}
         <input
           ref={inputRef}
-          type="search"
+          type="text"
           inputMode="search"
           enterKeyHint="search"
           value={value}
@@ -55,17 +55,17 @@ export default function SearchBar({
           spellCheck="false"
         />
 
-        {/* Icono derecho: Indicador de carga o botón de limpiar */}
-        <div className="absolute inset-y-0 right-0 pr-2 flex items-center">
+        {/* Icono derecho: Indicador de carga giratorio (Spinner) o botón único de limpiar */}
+        <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center">
           {isLoading ? (
-            <div className="p-2 flex items-center justify-center">
-              <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 text-beer-400 animate-spin" />
+            <div className="p-1 flex items-center justify-center text-beer-400">
+              <Loader2 className="w-5 h-5 animate-spin" />
             </div>
           ) : value ? (
             <button
               type="button"
               onClick={handleClear}
-              className="p-2 rounded-full text-gray-400 hover:text-white active:bg-white/10 transition-colors touch-manipulation"
+              className="p-1.5 rounded-full text-gray-400 hover:text-white active:bg-white/10 transition-colors touch-manipulation"
               title="Borrar búsqueda"
               aria-label="Borrar texto"
             >
@@ -87,7 +87,7 @@ export default function SearchBar({
                 onClick={() => onSelectChip && onSelectChip(chip.query)}
                 className={`whitespace-nowrap px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-150 flex-shrink-0 touch-manipulation ${
                   isSelected
-                    ? 'bg-beer-500 text-dark-200 shadow-sm shadow-beer/30'
+                    ? 'bg-beer-500 text-dark-200 shadow-sm shadow-beer/30 font-bold'
                     : 'bg-dark-100/90 text-gray-300 hover:text-white border border-white/5 active:border-beer-500/40 hover:bg-dark-50'
                 }`}
               >

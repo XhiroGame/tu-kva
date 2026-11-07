@@ -166,7 +166,7 @@ export default function ClientPage() {
     }
   }, [businessSlug])
 
-  // 3. Catálogo sugerido al cargar
+  // 3. Catálogo sugerido inicial al cargar
   useEffect(() => {
     loadSuggestedSongs()
   }, [])
@@ -175,6 +175,7 @@ export default function ClientPage() {
     const defaultKey = '__default_catalog__'
     if (clientSearchCache.current.has(defaultKey)) {
       setSearchResults(clientSearchCache.current.get(defaultKey))
+      setIsSearching(false)
       return
     }
 
@@ -239,11 +240,21 @@ export default function ClientPage() {
     }
   }
 
-  // 5. Búsqueda en vivo optimizada con Debounce (NO bloquea el teclado al escribir)
+  // 5. Manejador de cambio en el input: activa de inmediato el estado de carga
+  const handleQueryChange = (val) => {
+    setSearchQuery(val)
+    if (val.trim()) {
+      setIsSearching(true)
+    } else {
+      setIsSearching(false)
+      loadSuggestedSongs()
+    }
+  }
+
+  // 6. Debounce para ejecutar la búsqueda tras 320ms de inactividad
   useEffect(() => {
     const q = searchQuery.trim()
     if (!q) {
-      loadSuggestedSongs()
       return
     }
 
@@ -254,7 +265,6 @@ export default function ClientPage() {
       return
     }
 
-    // Esperar 320ms sin escribir antes de activar el indicador de búsqueda y consultar
     const timer = setTimeout(() => {
       performSearch(q)
     }, 320)
@@ -265,10 +275,17 @@ export default function ClientPage() {
   // Búsqueda inmediata al pulsar Enter o tocar un chip de género
   const handleImmediateSearch = (queryText) => {
     setSearchQuery(queryText)
+    setIsSearching(true)
     performSearch(queryText)
   }
 
-  // 6. Enviar pedido a la base de datos real con control antimonopolio (2 canciones cada 10 min)
+  const handleClearSearch = () => {
+    setSearchQuery('')
+    setIsSearching(false)
+    loadSuggestedSongs()
+  }
+
+  // 7. Enviar pedido a la base de datos real con control antimonopolio (2 canciones cada 10 min)
   const handleAddSong = async (song) => {
     const currentRecent = getRecentRequests()
     if (currentRecent.length >= 2) {
@@ -403,9 +420,9 @@ export default function ClientPage() {
             {/* Barra de Búsqueda con Chips Rápidos */}
             <SearchBar
               value={searchQuery}
-              onChange={setSearchQuery}
+              onChange={handleQueryChange}
               onSearch={handleImmediateSearch}
-              onClear={() => setSearchQuery('')}
+              onClear={handleClearSearch}
               isLoading={isSearching}
               chips={QUICK_GENRES}
               onSelectChip={handleImmediateSearch}
@@ -424,22 +441,25 @@ export default function ClientPage() {
               </span>
             </div>
 
-            {/* Pantalla de Espera Visual mientras busca */}
+            {/* Pantalla de Espera Visual Dinámica mientras busca */}
             {isSearching ? (
               <div className="space-y-3 animate-fade-in my-1 w-full max-w-full">
                 {/* Símbolo e Icono de Espera Destacado */}
-                <div className="card p-5 text-center rounded-2xl bg-dark-50/95 border border-beer-500/40 shadow-xl shadow-beer/10">
-                  <div className="relative w-12 h-12 mx-auto mb-2.5 flex items-center justify-center">
-                    <Disc3 className="w-12 h-12 text-beer-500 animate-spin" />
-                    <Sparkles className="w-4 h-4 text-yellow-300 absolute -top-1 -right-1 animate-bounce" />
+                <div className="card p-6 text-center rounded-3xl bg-dark-50/95 border border-beer-500/40 shadow-xl shadow-beer/10">
+                  <div className="relative w-14 h-14 mx-auto mb-3 flex items-center justify-center">
+                    <Disc3 className="w-14 h-14 text-beer-500 animate-spin" />
+                    <Sparkles className="w-5 h-5 text-yellow-300 absolute -top-1 -right-1 animate-bounce" />
                   </div>
-                  <h4 className="font-bold text-white text-sm sm:text-base flex items-center justify-center gap-2">
+                  <h4 className="font-extrabold text-white text-base sm:text-lg flex items-center justify-center gap-2">
                     <Loader2 className="w-4 h-4 text-beer-400 animate-spin" />
                     <span>Buscando canciones...</span>
                   </h4>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Buscando: <span className="text-beer-400 font-semibold font-mono">"{searchQuery || 'éxitos'}"</span>
+                  <p className="text-xs text-gray-300 mt-1 max-w-xs mx-auto">
+                    Consultando canciones en el catálogo oficial para:
                   </p>
+                  <div className="inline-block mt-2 px-3.5 py-1 bg-beer-500/15 border border-beer-500/30 rounded-full text-xs font-bold text-beer-400">
+                    "{searchQuery || 'éxitos'}"
+                  </div>
                 </div>
 
                 {/* Skeletons animados de carga proporcionales para no desbordar */}
@@ -474,9 +494,9 @@ export default function ClientPage() {
             ) : (
               <div className="card p-6 text-center border-dashed border-dark-border/80 rounded-2xl bg-dark-50/40">
                 <AlertCircle className="w-8 h-8 mx-auto mb-2 text-gray-500" />
-                <p className="font-bold text-white text-sm">Sin coincidencias</p>
+                <p className="font-bold text-white text-sm">Sin coincidencias para "{searchQuery}"</p>
                 <p className="text-xs text-gray-400 mt-1">
-                  Prueba tocando uno de los géneros arriba o busca por otro título.
+                  Prueba tocando uno de los géneros arriba o busca por otro título o artista.
                 </p>
               </div>
             )}
