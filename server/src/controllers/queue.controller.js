@@ -65,8 +65,23 @@ export async function getQueue(req, res) {
 
     if (qError) throw qError
 
-    const currentTrack = queue.find((item) => item.status === 'playing') || null
+    let currentTrack = queue.find((item) => item.status === 'playing') || null
     const pendingQueue = queue.filter((item) => item.status === 'pending')
+
+    // Auto-expirar canción "playing" si el reproductor del bar se cerró y ya superó su duración (+ 2 min margen)
+    if (currentTrack) {
+      const startedAt = new Date(currentTrack.played_at || currentTrack.requested_at).getTime()
+      const trackDurationSec = Number(currentTrack.songs?.duration) || 360
+      const maxValidMs = (trackDurationSec + 120) * 1000
+
+      if (!isNaN(startedAt) && Date.now() - startedAt > maxValidMs) {
+        await supabaseAdmin
+          .from('playlist_queue')
+          .update({ status: 'played' })
+          .eq('id', currentTrack.id)
+        currentTrack = null
+      }
+    }
 
     return res.json({
       success: true,

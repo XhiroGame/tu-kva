@@ -201,7 +201,8 @@ export default function ClientPage() {
 
     setIsSearching(true)
     try {
-      const response = await searchSongs('rock clasico éxitos', { limit: 25 })
+      // Consulta vacía devuelve al instante el catálogo popular guardado en Supabase del bar
+      const response = await searchSongs('', { limit: 25 })
       if (response?.data) {
         const filtered = response.data.filter((s) => s.duration > 30 && s.duration < 600)
         clientSearchCache.current.set(defaultKey, filtered)
