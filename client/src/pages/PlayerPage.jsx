@@ -37,6 +37,7 @@ export default function PlayerPage() {
   const lastEndedVideoIdRef = useRef(null)
   const recentPlayedIdsRef = useRef([])
   const handleTrackEndedRef = useRef(null)
+  const retryCountRef = useRef(0)
 
   // Mantener referencias sincronizadas con el estado actual
   useEffect(() => {
@@ -386,6 +387,74 @@ export default function PlayerPage() {
     }
   }, [businessSlug])
 
+  // Buscar y reproducir automáticamente una versión alternativa (audio / letra / en vivo)
+  // si el video original tiene restricciones de derechos de autor (LatinAutor/UMPG/Error 150/101)
+  const tryPlayAlternative = async (blockedTrack) => {
+    const song = blockedTrack?.songs
+    if (!song) return false
+
+    const rawTitle = song.title || ''
+    const rawArtist = song.artist || ''
+    const currentId = String(song.provider_song_id || '')
+
+    const cleanTitle = rawTitle
+      .replace(/\(video oficial\)/gi, '')
+      .replace(/\(official video\)/gi, '')
+      .replace(/\[original\]/gi, '')
+      .replace(/\(audio\)/gi, '')
+      .replace(/\(letra\)/gi, '')
+      .trim()
+
+    const queries = [
+      `${cleanTitle} ${rawArtist} letra`,
+      `${cleanTitle} ${rawArtist} audio`,
+      `${cleanTitle} ${rawArtist} en vivo`,
+      `${cleanTitle} audio oficial`
+    ]
+
+    for (const q of queries) {
+      try {
+        const searchRes = await searchSongs(q, { limit: 10 })
+        const candidates = (searchRes?.data || []).filter(
+          (cand) =>
+            cand.provider_song_id &&
+            String(cand.provider_song_id) !== currentId &&
+            !recentPlayedIdsRef.current.includes(String(cand.provider_song_id)) &&
+            cand.duration > 30 &&
+            cand.duration < 600
+        )
+
+        if (candidates.length > 0) {
+          const altSong = candidates[0]
+          recordPlayedSongId(currentId)
+
+          toast.success(
+            `Cargando versión alternativa de "${cleanTitle}" para ${blockedTrack.tables?.table_name || 'el Bar'}...`,
+            { id: 'yt-alt-song', duration: 4000 }
+          )
+
+          const updatedTrack = {
+            ...blockedTrack,
+            songs: {
+              ...blockedTrack.songs,
+              provider_song_id: altSong.provider_song_id,
+              title: altSong.title,
+            },
+          }
+          currentTrackRef.current = updatedTrack
+          setCurrentTrack(updatedTrack)
+          isTransitioningRef.current = false
+          loadVideoInPlayer(altSong.provider_song_id)
+          return true
+        }
+      } catch (err) {
+        console.warn('Error buscando versión alternativa:', err)
+      }
+    }
+
+    return false
+  }
+
   // 6. Cargar API de YouTube
   useEffect(() => {
     if (!window.YT) {
@@ -428,28 +497,51 @@ export default function PlayerPage() {
           onStateChange: (event) => {
             // 0 = YT.PlayerState.ENDED -> La canción terminó por completo
             if (event.data === 0) {
+              retryCountRef.current = 0
               handleTrackEndedRef.current?.()
             } else if (event.data === 1) {
+              retryCountRef.current = 0
               setIsPlaying(true)
             } else if (event.data === 2) {
               setIsPlaying(false)
             }
           },
-          onError: (event) => {
-            // Códigos 101/150: Propietario del video no permite reproducción externa (LatinAutor/UMPG/etc.)
-            // Códigos 100/2: Video no encontrado, borrado o parámetros inválidos
-            console.warn('Video de YouTube no disponible o bloqueado para embed:', event.data)
-            const badId = currentTrackRef.current?.songs?.provider_song_id
+          onError: async (event) => {
+            const errorCode = event.data
+            console.warn('Video de YouTube no disponible o bloqueado para embed:', errorCode)
+
+            const badTrack = currentTrackRef.current
+            const badId = badTrack?.songs?.provider_song_id
             if (badId) {
               recordPlayedSongId(badId)
             }
+
+            // Códigos 101/150: Propietario del video bloqueó reproducción externa (LatinAutor/UMPG/etc.)
+            // Códigos 100/2: Video no encontrado o inválido
+            if ((errorCode === 150 || errorCode === 101 || errorCode === 100 || errorCode === 2) && retryCountRef.current < 2) {
+              retryCountRef.current += 1
+              toast.error(
+                'El video oficial tiene restricción de derechos externos (LatinAutor/UMPG). Buscando versión alternativa...',
+                { id: 'yt-error-skip', duration: 3500 }
+              )
+              const foundAlt = await tryPlayAlternative(badTrack)
+              if (foundAlt) return
+            }
+
+            // Si no hay alternativa disponible o vuelve a fallar, avanzar limpiamente sin bloqueo
+            retryCountRef.current = 0
             toast.error(
-              'La canción tiene restricción de reproducción externa (LatinAutor/UMPG). Saltando a la siguiente...',
+              'No se pudo reproducir este video por derechos de autor. Saltando a la siguiente...',
               { id: 'yt-error-skip', duration: 3000 }
             )
+
+            // Desbloquear transiciones para garantizar el salto inmediato
+            isTransitioningRef.current = false
+            lastEndedVideoIdRef.current = null
+
             setTimeout(() => {
-              handleTrackEndedRef.current?.()
-            }, 600)
+              advanceToNextOrRandom(true)
+            }, 400)
           },
         },
       })
