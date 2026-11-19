@@ -3,13 +3,13 @@ import { useParams, Link } from 'react-router-dom'
 import { 
   Play, Pause, SkipForward, Volume2, VolumeX, 
   MonitorSpeaker, Users, Disc3, Radio, RefreshCw,
-  Search, Plus, Zap, X, Loader2, LayoutDashboard
+  Search, Plus, Zap, X, Loader2, LayoutDashboard, Trash2
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 import Logo from '@/components/ui/Logo'
 import { formatDuration } from '@/components/queue/SongCard'
-import { getQueue, updateQueueItem, getSmartFallback, searchSongs, addToQueue, reportBlockedSong } from '@/lib/api'
+import { getQueue, updateQueueItem, removeFromQueue, getSmartFallback, searchSongs, addToQueue, reportBlockedSong } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 
 export default function PlayerPage() {
@@ -245,6 +245,17 @@ export default function PlayerPage() {
 
   const handleSkip = () => {
     advanceToNextOrRandom(true)
+  }
+
+  // Eliminar canción directamente desde la fila del Reproductor Central
+  const handleRemoveFromQueue = async (itemId, songTitle) => {
+    try {
+      await removeFromQueue(itemId)
+      setQueue((prev) => prev.filter((item) => item.id !== itemId))
+      toast.success(songTitle ? `"${songTitle}" eliminada de la fila` : 'Canción eliminada de la fila')
+    } catch (error) {
+      toast.error(error.message || 'No se pudo eliminar la canción')
+    }
   }
 
   // 1. Sincronizar cola desde la base de datos SIN interrumpir la canción que ya está sonando
@@ -856,10 +867,18 @@ export default function PlayerPage() {
                       {item.songs?.artist}
                     </p>
                   </div>
-                  <div className="text-right flex-shrink-0">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <span className="text-[10px] bg-white/10 text-gray-300 px-2 py-0.5 rounded-full font-medium">
                       {item.tables?.table_name || 'La Barra'}
                     </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveFromQueue(item.id, item.songs?.title)}
+                      className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-all active:scale-95"
+                      title="Eliminar de la fila"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               ))
