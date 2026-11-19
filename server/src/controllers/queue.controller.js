@@ -3,6 +3,9 @@ import supabaseAdmin from '../config/supabase.js'
 // Memoria para rastrear solicitudes por dispositivo e IP (ventana de 10 minutos)
 const deviceRequestsMap = new Map()
 
+// Heartbeat en tiempo real del Reproductor Central por negocio (detecta si la pestaña del bar está abierta y sonando)
+const playerHeartbeatMap = new Map()
+
 // Limpieza periódica cada 15 minutos para evitar acumulación en memoria
 setInterval(() => {
   const cutoff = Date.now() - 10 * 60 * 1000
@@ -83,10 +86,19 @@ export async function getQueue(req, res) {
       }
     }
 
+    const hb = playerHeartbeatMap.get(business.id)
+    const isPlayerActive = Boolean(hb && Date.now() - hb.lastSeen < 20000 && hb.isPlaying)
+    const isPlayerRequest = req.query.role === 'player'
+
+    // Si la consulta viene de una mesa/cliente y el reproductor central NO está abierto ni reproduciendo,
+    // no mostrar una canción fantasma como "Sonando ahora en el bar"
+    const visibleCurrentTrack = isPlayerRequest || isPlayerActive ? currentTrack : null
+
     return res.json({
       success: true,
       business,
-      currentTrack,
+      playerActive: isPlayerActive,
+      currentTrack: visibleCurrentTrack,
       queue: pendingQueue,
     })
   } catch (error) {
@@ -336,6 +348,35 @@ export async function updateQueueStatus(req, res) {
   } catch (error) {
     console.error('[Update Queue Error]', error)
     return res.status(500).json({ success: false, message: error.message })
+  }
+}
+
+/**
+ * POST /api/queue/:businessSlug/heartbeat
+ * Registra que el Reproductor Central del bar está abierto y reporta si está reproduciendo audio
+ */
+export async function playerHeartbeat(req, res) {
+  try {
+    const safeSlug = String(req.params.businessSlug || 'tu-kva').replace(/[^a-zA-Z0-9_-]/g, '') || 'tu-kva'
+    const isPlaying = Boolean(req.body?.isPlaying)
+
+    const { data: business } = await supabaseAdmin
+      .from('businesses')
+      .select('id')
+      .or(`slug.eq.${safeSlug},slug.eq.tu-kva,id.eq.a1b2c3d4-0000-0000-0000-000000000001`)
+      .limit(1)
+      .maybeSingle()
+
+    const businessId = business?.id || 'a1b2c3d4-0000-0000-0000-000000000001'
+    playerHeartbeatMap.set(businessId, {
+      lastSeen: Date.now(),
+      isPlaying,
+    })
+
+    return res.json({ success: true, playerActive: isPlaying })
+  } catch (error) {
+    console.error('[Player Heartbeat Error]', error)
+    return res.status(500).json({ success: false, message: 'Error registrando heartbeat' })
   }
 }
 

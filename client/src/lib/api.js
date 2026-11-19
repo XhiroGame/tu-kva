@@ -120,9 +120,21 @@ export const addToQueue = (payload) =>
 /**
  * Get the current queue for a business.
  * @param {string} businessSlug
+ * @param {object} options - { role?: 'player' }
  */
-export const getQueue = (businessSlug) =>
-  apiFetch(`/queue/${businessSlug}`)
+export const getQueue = (businessSlug, options = {}) => {
+  const query = options.role ? `?role=${encodeURIComponent(options.role)}` : ''
+  return apiFetch(`/queue/${businessSlug}${query}`)
+}
+
+/**
+ * Reporta al backend que el reproductor central está activo/sonando
+ */
+export const sendPlayerHeartbeat = (businessSlug, isPlaying) =>
+  apiFetch(`/queue/${businessSlug}/heartbeat`, {
+    method: 'POST',
+    body: JSON.stringify({ isPlaying: Boolean(isPlaying) }),
+  })
 
 /**
  * Update a queue item (admin only: status, position).

@@ -9,7 +9,7 @@ import toast from 'react-hot-toast'
 
 import Logo from '@/components/ui/Logo'
 import { formatDuration } from '@/components/queue/SongCard'
-import { getQueue, updateQueueItem, removeFromQueue, reorderQueue, getSmartFallback, searchSongs, addToQueue, reportBlockedSong } from '@/lib/api'
+import { getQueue, updateQueueItem, removeFromQueue, reorderQueue, sendPlayerHeartbeat, getSmartFallback, searchSongs, addToQueue, reportBlockedSong } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 
 export default function PlayerPage() {
@@ -207,7 +207,7 @@ export default function PlayerPage() {
       // Consultar la lista actualizada en base de datos
       let freshQueue = []
       try {
-        const res = await getQueue(businessSlug)
+        const res = await getQueue(businessSlug, { role: 'player' })
         freshQueue = (res?.queue || []).filter((i) => i.id !== activeTrack?.id)
         setQueue(freshQueue)
       } catch (err) {
@@ -297,7 +297,7 @@ export default function PlayerPage() {
     if (isTransitioningRef.current) return
 
     try {
-      const res = await getQueue(businessSlug)
+      const res = await getQueue(businessSlug, { role: 'player' })
       if (res?.success) {
         if (res.business?.name) setBusinessName(res.business.name)
         const pendingList = res.queue || []
@@ -436,6 +436,32 @@ export default function PlayerPage() {
       clearInterval(interval)
     }
   }, [businessSlug])
+
+  // 5b. Heartbeat de presencia del Reproductor Central:
+  // Informa cada 8s si el reproductor está abierto y reproduciendo; si se cierra la pestaña, los celulares dejan de ver "Sonando ahora"
+  useEffect(() => {
+    const ping = (playingState) => {
+      sendPlayerHeartbeat(businessSlug, playingState).catch(() => {})
+    }
+
+    ping(isPlaying)
+    const hbInterval = setInterval(() => {
+      ping(isPlaying)
+    }, 8000)
+
+    const handleBeforeUnload = () => {
+      ping(false)
+    }
+    window.addEventListener('pagehide', handleBeforeUnload)
+    window.addEventListener('beforeunload', handleBeforeUnload)
+
+    return () => {
+      clearInterval(hbInterval)
+      window.removeEventListener('pagehide', handleBeforeUnload)
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      ping(false)
+    }
+  }, [businessSlug, isPlaying])
 
   // Buscar y reproducir automáticamente una versión alternativa (audio / letra / en vivo)
   // si el video original tiene restricciones de derechos de autor (LatinAutor/UMPG/Error 150/101)
