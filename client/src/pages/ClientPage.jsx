@@ -51,17 +51,7 @@ function recordLocalRequest() {
   }
 }
 
-// Géneros rápidos recomendados para pedir con un solo toque en el bar
-const QUICK_GENRES = [
-  { label: '🔥 Éxitos Populares', query: 'exitos populares canciones' },
-  { label: '🌴 Reggaetón', query: 'reggaeton exitos' },
-  { label: '🎸 Rock', query: 'rock clasico exitos' },
-  { label: '💃 Salsa', query: 'salsa clasica exitos' },
-  { label: '🤠 Vallenato', query: 'vallenato clasicos' },
-  { label: '🎺 Bachata', query: 'bachata exitos' },
-  { label: '⚡ Pop Latino', query: 'pop latino exitos' },
-  { label: '🎧 Electrónica', query: 'dance electronic music' },
-]
+// Búsqueda por texto libre (sin chips de géneros)
 
 export default function ClientPage() {
   const { businessSlug = 'tu-kva', qrToken = 'test-qr-token-mesa-1' } = useParams()
@@ -463,8 +453,6 @@ export default function ClientPage() {
               onSearch={handleImmediateSearch}
               onClear={handleClearSearch}
               isLoading={isSearching}
-              chips={QUICK_GENRES}
-              onSelectChip={handleImmediateSearch}
             />
 
             {/* Subtítulo de estado de resultados */}
@@ -535,7 +523,7 @@ export default function ClientPage() {
                 <AlertCircle className="w-8 h-8 mx-auto mb-2 text-gray-500" />
                 <p className="font-bold text-white text-sm">Sin coincidencias para "{searchQuery}"</p>
                 <p className="text-xs text-gray-400 mt-1">
-                  Prueba tocando uno de los géneros arriba o busca por otro título o artista.
+                  Prueba buscando por otro título o nombre del artista.
                 </p>
               </div>
             )}
