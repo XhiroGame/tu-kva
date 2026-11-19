@@ -23,12 +23,13 @@ setInterval(() => {
 export async function getQueue(req, res) {
   try {
     const { businessSlug } = req.params
+    const safeSlug = String(businessSlug || 'tu-kva').replace(/[^a-zA-Z0-9_-]/g, '') || 'tu-kva'
 
     // 1. Obtener el business_id por el slug o id por defecto
     let { data: business } = await supabaseAdmin
       .from('businesses')
       .select('id, name, slug')
-      .or(`slug.eq.${businessSlug},slug.eq.tu-kva,id.eq.a1b2c3d4-0000-0000-0000-000000000001`)
+      .or(`slug.eq.${safeSlug},slug.eq.tu-kva,id.eq.a1b2c3d4-0000-0000-0000-000000000001`)
       .limit(1)
       .single()
 
@@ -93,10 +94,11 @@ export async function addToQueue(req, res) {
     }
 
     // 1. Validar establecimiento con fallback automático
+    const safeSlug = String(businessSlug || 'tu-kva').replace(/[^a-zA-Z0-9_-]/g, '') || 'tu-kva'
     let { data: business } = await supabaseAdmin
       .from('businesses')
       .select('id')
-      .or(`slug.eq.${businessSlug},slug.eq.tu-kva,id.eq.a1b2c3d4-0000-0000-0000-000000000001`)
+      .or(`slug.eq.${safeSlug},slug.eq.tu-kva,id.eq.a1b2c3d4-0000-0000-0000-000000000001`)
       .limit(1)
       .single()
 
@@ -104,19 +106,28 @@ export async function addToQueue(req, res) {
       business = { id: 'a1b2c3d4-0000-0000-0000-000000000001' }
     }
 
-    // 2. Validar mesa por qr_token (o asignar la mesa por defecto si es test)
+    // 2. Validar mesa por qr_token (obligatorio para clientes no autenticados)
+    const isAdminOrDj = Boolean(req.user)
     let tableId = null
+
     if (qrToken) {
       const { data: table } = await supabaseAdmin
         .from('tables')
         .select('id, active')
         .eq('qr_token', qrToken)
         .eq('business_id', business.id)
-        .single()
+        .maybeSingle()
 
       if (table && table.active) {
         tableId = table.id
       }
+    }
+
+    if (!isAdminOrDj && !tableId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Código QR de mesa inválido o inactivo. Escanea el código QR de tu mesa para pedir canciones.',
+      })
     }
 
     // 3. Regla de Duración Máxima (máx 10 minutos / 600 segundos)
@@ -145,7 +156,7 @@ export async function addToQueue(req, res) {
     }
 
     // 5. Regla Antimonopolio: Límite estricto de 2 canciones por dispositivo o mesa cada 10 minutos
-    const isClientOrder = Boolean(qrToken || deviceId)
+    const isClientOrder = !isAdminOrDj
     const clientIp = req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown-ip'
     const deviceKey = deviceId ? `dev:${deviceId}` : `ip:${clientIp}`
     const tenMinutesMs = 10 * 60 * 1000

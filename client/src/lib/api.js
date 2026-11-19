@@ -1,3 +1,5 @@
+import { supabase } from './supabase'
+
 /**
  * API client for communicating with the BEER MUSIC backend.
  * All music searches and queue mutations go through the backend
@@ -40,10 +42,14 @@ async function apiFetch(endpoint, options = {}) {
     'Content-Type': 'application/json',
   }
 
-  // Attach auth token if available (admin routes)
-  const token = localStorage.getItem('beer-music-token')
-  if (token) {
-    defaultHeaders['Authorization'] = `Bearer ${token}`
+  // Attach Supabase Auth JWT token if logged in (admin / player routes)
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session?.access_token) {
+      defaultHeaders['Authorization'] = `Bearer ${session.access_token}`
+    }
+  } catch {
+    // Public client without session
   }
 
   const response = await fetch(url, {

@@ -57,6 +57,23 @@ export async function searchSongs(req, res) {
 
     let results = []
 
+    // Helper para limpiar caracteres especiales que rompen filtros PostgREST .or()
+    const sanitizePostgrest = (str) =>
+      String(str || '')
+        .replace(/[,()'"%*\\]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+
+    // Helper con timeout para evitar que yt-search cuelgue > 10s en Render
+    const searchYouTubeWithTimeout = (q, opts, timeoutMs = 9000) =>
+      Promise.race([
+        musicProvider.search(q, opts),
+        new Promise((resolve) => setTimeout(() => resolve([]), timeoutMs)),
+      ]).catch((err) => {
+        console.warn('[YouTube Search Fallback]', err.message)
+        return []
+      })
+
     // 2. Si no hay query, buscar éxitos populares de ambiente
     if (!query) {
       // Intentar primero desde canciones populares ya guardadas en Supabase
@@ -65,34 +82,53 @@ export async function searchSongs(req, res) {
         .select('*')
         .eq('provider', 'youtube')
         .lt('duration', 600)
-        .gt('duration', 45)
+        .gt('duration', 30)
         .order('created_at', { ascending: false })
         .limit(limit)
 
-      if (popularDbSongs && popularDbSongs.length >= 10) {
+      if (popularDbSongs && popularDbSongs.length >= 5) {
         results = popularDbSongs
       } else {
-        results = await musicProvider.search('exitos populares musica bar canciones', { limit })
+        const ytPop = await searchYouTubeWithTimeout('exitos populares musica bar canciones', { limit })
+        const merged = [...(popularDbSongs || []), ...ytPop]
+        const seen = new Set()
+        results = merged.filter((s) => {
+          const id = String(s.provider_song_id || '')
+          if (!id || seen.has(id)) return false
+          seen.add(id)
+          return true
+        })
       }
     } else {
+      let dbMatches = []
+
       // 3. Buscar en Supabase por si ya fue buscada antes (coincidencia rápida en BD)
-      if (query.length >= 3) {
-        const { data: dbMatches } = await supabaseAdmin
+      const safeQuery = sanitizePostgrest(query)
+      if (safeQuery.length >= 3) {
+        const { data: matchedRows } = await supabaseAdmin
           .from('songs')
           .select('*')
-          .or(`title.ilike.%${query}%,artist.ilike.%${query}%`)
+          .or(`title.ilike.%${safeQuery}%,artist.ilike.%${safeQuery}%`)
           .lt('duration', 600)
-          .gt('duration', 45)
+          .gt('duration', 30)
           .limit(limit)
 
-        if (dbMatches && dbMatches.length >= 8) {
-          results = dbMatches
-        }
+        dbMatches = matchedRows || []
       }
 
-      // 4. Si aún no hay suficientes resultados locales, buscar en YouTube
-      if (results.length === 0) {
-        results = await musicProvider.search(query, { limit, offset })
+      // Si ya tenemos suficientes coincidencias en Supabase, responder instantáneamente (< 150ms)
+      if (dbMatches.length >= 6) {
+        results = dbMatches
+      } else {
+        // 4. Complementar con YouTube sin descartar lo que ya encontramos en Supabase
+        const ytResults = await searchYouTubeWithTimeout(query, { limit, offset })
+        const seen = new Set()
+        results = [...ytResults, ...dbMatches].filter((s) => {
+          const id = String(s.provider_song_id || '')
+          if (!id || seen.has(id)) return false
+          seen.add(id)
+          return true
+        })
       }
     }
 
@@ -158,10 +194,11 @@ export async function getSmartFallbackSongs(req, res) {
     )
 
     // 1. Obtener el business_id con soporte para slug por defecto
+    const safeSlug = String(businessSlug || 'tu-kva').replace(/[^a-zA-Z0-9_-]/g, '') || 'tu-kva'
     let { data: business } = await supabaseAdmin
       .from('businesses')
       .select('id, name, slug')
-      .or(`slug.eq.${businessSlug},slug.eq.tu-kva,id.eq.a1b2c3d4-0000-0000-0000-000000000001`)
+      .or(`slug.eq.${safeSlug},slug.eq.tu-kva,id.eq.a1b2c3d4-0000-0000-0000-000000000001`)
       .limit(1)
       .single()
 

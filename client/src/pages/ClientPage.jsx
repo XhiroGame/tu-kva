@@ -79,7 +79,9 @@ export default function ClientPage() {
   const activeAbortController = useRef(null)
 
   // Estados de mesa y establecimiento
-  const [tableName, setTableName] = useState('Mesa 1')
+  const [tableId, setTableId] = useState(null)
+  const [tableName, setTableName] = useState('Cargando mesa...')
+  const [tableStatus, setTableStatus] = useState('loading') // 'loading' | 'valid' | 'invalid'
   const [businessName, setBusinessName] = useState('Tu K-VA')
 
   // Playlist en tiempo real
@@ -95,6 +97,39 @@ export default function ClientPage() {
     }, 10000)
     return () => clearInterval(timer)
   }, [])
+
+  // 0. Validar el token QR una sola vez (no en cada polling de 3s)
+  useEffect(() => {
+    let isMounted = true
+    const checkTable = async () => {
+      if (!qrToken) {
+        if (isMounted) setTableStatus('invalid')
+        return
+      }
+      setTableStatus('loading')
+      try {
+        const tableRes = await validateTable(qrToken)
+        if (!isMounted) return
+        if (tableRes?.success && tableRes.data?.active !== false && tableRes.data?.tableName) {
+          setTableId(tableRes.data.tableId || null)
+          setTableName(tableRes.data.tableName)
+          if (tableRes.data.businessName) {
+            setBusinessName(tableRes.data.businessName)
+          }
+          setTableStatus('valid')
+        } else {
+          setTableStatus('invalid')
+        }
+      } catch (tErr) {
+        console.warn('Error validando mesa:', tErr)
+        if (isMounted) setTableStatus('invalid')
+      }
+    }
+    checkTable()
+    return () => {
+      isMounted = false
+    }
+  }, [qrToken])
 
   // 1. Cargar cola y estado inicial desde la base de datos
   const fetchQueueData = async () => {
@@ -120,27 +155,12 @@ export default function ClientPage() {
         // Cola de espera
         setQueue(response.queue || [])
       }
-
-      // Obtener el nombre real de la mesa validando el token contra el servidor
-      if (qrToken) {
-        try {
-          const tableRes = await validateTable(qrToken)
-          if (tableRes?.success && tableRes.data?.tableName) {
-            setTableName(tableRes.data.tableName)
-            if (tableRes.data.businessName) {
-              setBusinessName(tableRes.data.businessName)
-            }
-          }
-        } catch (tErr) {
-          console.warn('Error validando mesa:', tErr)
-        }
-      }
     } catch (error) {
       console.warn('Error al obtener la playlist:', error)
     }
   }
 
-  // 2. Suscripción en Tiempo Real con Supabase Realtime + Intervalo
+  // 2. Suscripción en Tiempo Real con Supabase Realtime + Intervalo de respaldo (8s)
   useEffect(() => {
     fetchQueueData()
 
@@ -158,13 +178,13 @@ export default function ClientPage() {
 
     const interval = setInterval(() => {
       fetchQueueData()
-    }, 3000)
+    }, 8000)
 
     return () => {
       supabase.removeChannel(channel)
       clearInterval(interval)
     }
-  }, [businessSlug])
+  }, [businessSlug, qrToken])
 
   // 3. Catálogo sugerido inicial al cargar
   useEffect(() => {
@@ -341,6 +361,24 @@ export default function ClientPage() {
 
   const isTypingSearch = activeTab === 'search' && searchQuery.trim().length > 0
 
+  if (tableStatus === 'invalid') {
+    return (
+      <div className="min-h-screen bg-dark-200 text-white flex flex-col items-center justify-center p-6 text-center">
+        <div className="max-w-sm w-full card p-6 rounded-3xl border border-red-500/30 bg-dark-50/90 space-y-4">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400">
+            <AlertCircle className="w-7 h-7" />
+          </div>
+          <h1 className="text-xl font-display font-bold text-white">
+            Código QR no válido
+          </h1>
+          <p className="text-sm text-gray-400 leading-relaxed">
+            Esta mesa no existe o fue desactivada. Por favor escanea nuevamente el código QR ubicado en tu mesa en <span className="text-beer-400 font-semibold">{businessName}</span>.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-dark-200 text-white flex flex-col justify-between selection:bg-beer-500 selection:text-black w-full overflow-x-hidden">
       <div className="w-full max-w-lg mx-auto px-3.5 py-2.5 pb-24 sm:py-5 sm:px-4">
@@ -516,7 +554,7 @@ export default function ClientPage() {
             </div>
 
             {/* Lista de reproducción */}
-            <QueueList queue={queue} />
+            <QueueList queue={queue} currentTableId={tableId} />
           </div>
         )}
       </div>

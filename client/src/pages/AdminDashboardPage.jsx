@@ -84,10 +84,10 @@ export default function AdminDashboardPage() {
       )
       .subscribe()
 
-    // 2. Intervalo de respaldo cada 3 segundos (garantiza sincronización continua)
+    // 2. Intervalo de respaldo cada 6 segundos (Supabase Realtime actualiza al instante)
     const interval = setInterval(() => {
       fetchQueue()
-    }, 3000)
+    }, 6000)
 
     return () => {
       supabase.removeChannel(channel)
@@ -159,7 +159,7 @@ export default function AdminDashboardPage() {
   const downloadQR = (dataUrl, tableName) => {
     const link = document.createElement('a')
     link.href = dataUrl
-    link.download = `BEER-MUSIC-${tableName.replace(/\s+/g, '-')}-QR.png`
+    link.download = `TU-KVA-${tableName.replace(/\s+/g, '-')}-QR.png`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)

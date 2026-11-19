@@ -37,6 +37,7 @@ export default function PlayerPage() {
   const lastEndedVideoIdRef = useRef(null)
   const recentPlayedIdsRef = useRef([])
   const handleTrackEndedRef = useRef(null)
+  const onErrorHandlerRef = useRef(null)
   const retryCountRef = useRef(0)
 
   // Mantener referencias sincronizadas con el estado actual
@@ -379,7 +380,7 @@ export default function PlayerPage() {
 
     const interval = setInterval(() => {
       fetchQueue()
-    }, 3000)
+    }, 6000)
 
     return () => {
       supabase.removeChannel(channel)
@@ -455,6 +456,47 @@ export default function PlayerPage() {
     return false
   }
 
+  // Mantener siempre actualizado el manejador de errores de YouTube para evitar closures obsoletos
+  useEffect(() => {
+    onErrorHandlerRef.current = async (event) => {
+      const errorCode = event.data
+      console.warn('Video de YouTube no disponible o bloqueado para embed:', errorCode)
+
+      const badTrack = currentTrackRef.current
+      const badId = badTrack?.songs?.provider_song_id
+      if (badId) {
+        recordPlayedSongId(badId)
+      }
+
+      // Códigos 101/150: Propietario del video bloqueó reproducción externa (LatinAutor/UMPG/etc.)
+      // Códigos 100/2: Video no encontrado o inválido
+      if ((errorCode === 150 || errorCode === 101 || errorCode === 100 || errorCode === 2) && retryCountRef.current < 2) {
+        retryCountRef.current += 1
+        toast.error(
+          'El video oficial tiene restricción de derechos externos (LatinAutor/UMPG). Buscando versión alternativa...',
+          { id: 'yt-error-skip', duration: 3500 }
+        )
+        const foundAlt = await tryPlayAlternative(badTrack)
+        if (foundAlt) return
+      }
+
+      // Si no hay alternativa disponible o vuelve a fallar, avanzar limpiamente sin bloqueo
+      retryCountRef.current = 0
+      toast.error(
+        'No se pudo reproducir este video por derechos de autor. Saltando a la siguiente...',
+        { id: 'yt-error-skip', duration: 3000 }
+      )
+
+      // Desbloquear transiciones para garantizar el salto inmediato
+      isTransitioningRef.current = false
+      lastEndedVideoIdRef.current = null
+
+      setTimeout(() => {
+        advanceToNextOrRandom(true)
+      }, 400)
+    }
+  })
+
   // 6. Cargar API de YouTube
   useEffect(() => {
     if (!window.YT) {
@@ -506,42 +548,8 @@ export default function PlayerPage() {
               setIsPlaying(false)
             }
           },
-          onError: async (event) => {
-            const errorCode = event.data
-            console.warn('Video de YouTube no disponible o bloqueado para embed:', errorCode)
-
-            const badTrack = currentTrackRef.current
-            const badId = badTrack?.songs?.provider_song_id
-            if (badId) {
-              recordPlayedSongId(badId)
-            }
-
-            // Códigos 101/150: Propietario del video bloqueó reproducción externa (LatinAutor/UMPG/etc.)
-            // Códigos 100/2: Video no encontrado o inválido
-            if ((errorCode === 150 || errorCode === 101 || errorCode === 100 || errorCode === 2) && retryCountRef.current < 2) {
-              retryCountRef.current += 1
-              toast.error(
-                'El video oficial tiene restricción de derechos externos (LatinAutor/UMPG). Buscando versión alternativa...',
-                { id: 'yt-error-skip', duration: 3500 }
-              )
-              const foundAlt = await tryPlayAlternative(badTrack)
-              if (foundAlt) return
-            }
-
-            // Si no hay alternativa disponible o vuelve a fallar, avanzar limpiamente sin bloqueo
-            retryCountRef.current = 0
-            toast.error(
-              'No se pudo reproducir este video por derechos de autor. Saltando a la siguiente...',
-              { id: 'yt-error-skip', duration: 3000 }
-            )
-
-            // Desbloquear transiciones para garantizar el salto inmediato
-            isTransitioningRef.current = false
-            lastEndedVideoIdRef.current = null
-
-            setTimeout(() => {
-              advanceToNextOrRandom(true)
-            }, 400)
+          onError: (event) => {
+            onErrorHandlerRef.current?.(event)
           },
         },
       })

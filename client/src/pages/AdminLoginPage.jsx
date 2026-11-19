@@ -137,7 +137,7 @@ function AdminLoginPage() {
         </div>
 
         <p className="text-center text-gray-600 text-xs mt-6">
-          BEER MUSIC © {new Date().getFullYear()} — Solo personal autorizado
+          TU K-VA © {new Date().getFullYear()} — Solo personal autorizado
         </p>
       </div>
     </div>
