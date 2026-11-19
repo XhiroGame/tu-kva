@@ -16,7 +16,7 @@ export default function AdminDashboardPage() {
   const { user, signOut } = useApp()
   const businessSlug = 'tu-kva'
 
-  const [activeTab, setActiveTab] = useState('tables') // 'tables' | 'stats'
+  const [activeTab, setActiveTab] = useState('stats') // 'stats' | 'tables'
 
   // Estados de Mesas
   const [tables, setTables] = useState([])
@@ -138,6 +138,18 @@ export default function AdminDashboardPage() {
           <Logo size="sm" />
           <nav className="hidden md:flex items-center gap-2">
             <button
+              onClick={() => setActiveTab('stats')}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 ${
+                activeTab === 'stats'
+                  ? 'bg-beer-500 text-dark-200 shadow-sm shadow-beer/30'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span>Estadísticas</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('tables')}
               className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 ${
                 activeTab === 'tables'
@@ -150,18 +162,6 @@ export default function AdminDashboardPage() {
               <span className="bg-white/10 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full">
                 {tables.length}
               </span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('stats')}
-              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 ${
-                activeTab === 'stats'
-                  ? 'bg-beer-500 text-dark-200 shadow-sm shadow-beer/30'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <BarChart3 className="w-4 h-4" />
-              <span>Estadísticas</span>
             </button>
           </nav>
         </div>
@@ -199,16 +199,6 @@ export default function AdminDashboardPage() {
       <div className="md:hidden flex flex-col border-b border-white/10 bg-dark-100 p-2 gap-2">
         <div className="flex gap-2">
           <button
-            onClick={() => setActiveTab('tables')}
-            className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 ${
-              activeTab === 'tables' ? 'bg-beer-500 text-dark-200' : 'text-gray-400'
-            }`}
-          >
-            <QrCode className="w-4 h-4" />
-            <span>Mesas ({tables.length})</span>
-          </button>
-
-          <button
             onClick={() => setActiveTab('stats')}
             className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 ${
               activeTab === 'stats' ? 'bg-beer-500 text-dark-200' : 'text-gray-400'
@@ -216,6 +206,16 @@ export default function AdminDashboardPage() {
           >
             <BarChart3 className="w-4 h-4" />
             <span>Estadísticas</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('tables')}
+            className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 ${
+              activeTab === 'tables' ? 'bg-beer-500 text-dark-200' : 'text-gray-400'
+            }`}
+          >
+            <QrCode className="w-4 h-4" />
+            <span>Mesas ({tables.length})</span>
           </button>
         </div>
 
