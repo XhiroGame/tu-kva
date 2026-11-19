@@ -143,6 +143,16 @@ export const removeFromQueue = (itemId) =>
   apiFetch(`/queue/${itemId}`, { method: 'DELETE' })
 
 /**
+ * Reorder pending queue items (admin / player only).
+ * @param {string[]} orderedIds
+ */
+export const reorderQueue = (orderedIds) =>
+  apiFetch('/queue/reorder', {
+    method: 'PUT',
+    body: JSON.stringify({ orderedIds }),
+  })
+
+/**
  * Clear the entire queue (admin only).
  * @param {string} businessSlug
  */

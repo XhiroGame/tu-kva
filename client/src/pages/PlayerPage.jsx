@@ -3,13 +3,13 @@ import { useParams, Link } from 'react-router-dom'
 import { 
   Play, Pause, SkipForward, Volume2, VolumeX, 
   MonitorSpeaker, Users, Disc3, Radio, RefreshCw,
-  Search, Plus, Zap, X, Loader2, LayoutDashboard, Trash2
+  Search, Plus, Zap, X, Loader2, LayoutDashboard, Trash2, GripVertical
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 import Logo from '@/components/ui/Logo'
 import { formatDuration } from '@/components/queue/SongCard'
-import { getQueue, updateQueueItem, removeFromQueue, getSmartFallback, searchSongs, addToQueue, reportBlockedSong } from '@/lib/api'
+import { getQueue, updateQueueItem, removeFromQueue, reorderQueue, getSmartFallback, searchSongs, addToQueue, reportBlockedSong } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 
 export default function PlayerPage() {
@@ -29,6 +29,10 @@ export default function PlayerPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [isSearching, setIsSearching] = useState(false)
+
+  // Estados de Drag & Drop para reordenar Próximos Turnos
+  const [draggedIndex, setDraggedIndex] = useState(null)
+  const [dragOverIndex, setDragOverIndex] = useState(null)
 
   const playerRef = useRef(null)
   const currentTrackRef = useRef(null)
@@ -255,6 +259,36 @@ export default function PlayerPage() {
       toast.success(songTitle ? `"${songTitle}" eliminada de la fila` : 'Canción eliminada de la fila')
     } catch (error) {
       toast.error(error.message || 'No se pudo eliminar la canción')
+    }
+  }
+
+  // Reordenar canciones arrastrando y soltando (Drag & Drop)
+  const handleDropQueueItem = async (targetIndex) => {
+    if (draggedIndex === null || draggedIndex === targetIndex) {
+      setDraggedIndex(null)
+      setDragOverIndex(null)
+      return
+    }
+
+    const previousQueue = [...queue]
+    const updatedQueue = [...queue]
+    const [movedItem] = updatedQueue.splice(draggedIndex, 1)
+    updatedQueue.splice(targetIndex, 0, movedItem)
+
+    // Actualización optimista inmediata
+    setQueue(updatedQueue)
+    queueRef.current = updatedQueue
+    setDraggedIndex(null)
+    setDragOverIndex(null)
+
+    try {
+      await reorderQueue(updatedQueue.map((item) => item.id))
+      toast.success('Orden de la fila actualizado', { id: 'queue-reorder', duration: 2000 })
+    } catch (error) {
+      // Revertir si falló en el servidor
+      setQueue(previousQueue)
+      queueRef.current = previousQueue
+      toast.error(error.message || 'No se pudo guardar el nuevo orden')
     }
   }
 
@@ -847,8 +881,33 @@ export default function PlayerPage() {
               queue.map((item, index) => (
                 <div
                   key={item.id}
-                  className="flex items-center p-3 gap-3 rounded-2xl bg-dark-100/70 border border-white/5 hover:border-beer-500/30 transition-all"
+                  draggable
+                  onDragStart={() => setDraggedIndex(index)}
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    if (dragOverIndex !== index) setDragOverIndex(index)
+                  }}
+                  onDragLeave={() => {
+                    if (dragOverIndex === index) setDragOverIndex(null)
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    handleDropQueueItem(index)
+                  }}
+                  onDragEnd={() => {
+                    setDraggedIndex(null)
+                    setDragOverIndex(null)
+                  }}
+                  className={`flex items-center p-3 gap-2.5 rounded-2xl border transition-all select-none cursor-grab active:cursor-grabbing ${
+                    draggedIndex === index
+                      ? 'opacity-45 border-beer-500/50 bg-dark-100'
+                      : dragOverIndex === index
+                        ? 'border-beer-400 bg-beer-500/15 scale-[1.01]'
+                        : 'bg-dark-100/70 border-white/5 hover:border-beer-500/30'
+                  }`}
+                  title="Arrastra para cambiar el orden"
                 >
+                  <GripVertical className="w-4 h-4 text-gray-500 hover:text-beer-400 flex-shrink-0" />
                   <div className="w-7 h-7 rounded-full bg-beer-500/20 text-beer-400 flex items-center justify-center font-bold text-xs flex-shrink-0">
                     {index + 1}
                   </div>
@@ -856,7 +915,7 @@ export default function PlayerPage() {
                     <img
                       src={item.songs?.thumbnail_url}
                       alt="Mini"
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover pointer-events-none"
                     />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -873,6 +932,8 @@ export default function PlayerPage() {
                     </span>
                     <button
                       type="button"
+                      draggable={false}
+                      onMouseDown={(e) => e.stopPropagation()}
                       onClick={() => handleRemoveFromQueue(item.id, item.songs?.title)}
                       className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-all active:scale-95"
                       title="Eliminar de la fila"

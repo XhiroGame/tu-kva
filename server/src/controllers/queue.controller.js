@@ -340,6 +340,35 @@ export async function updateQueueStatus(req, res) {
 }
 
 /**
+ * PUT /api/queue/reorder
+ * Reordena las posiciones de las canciones pendientes en la fila (drag & drop desde el reproductor)
+ * Body: { orderedIds: string[] }
+ */
+export async function reorderQueue(req, res) {
+  try {
+    const { orderedIds } = req.body || {}
+    if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'Se requiere una lista de IDs ordenados' })
+    }
+
+    await Promise.all(
+      orderedIds.map((id, index) =>
+        supabaseAdmin
+          .from('playlist_queue')
+          .update({ position: index })
+          .eq('id', id)
+          .eq('status', 'pending')
+      )
+    )
+
+    return res.json({ success: true, message: 'Orden actualizado correctamente' })
+  } catch (error) {
+    console.error('[Reorder Queue Error]', error)
+    return res.status(500).json({ success: false, message: 'Error al reordenar la fila' })
+  }
+}
+
+/**
  * DELETE /api/queue/:itemId
  * Elimina una canción de la cola (moderación administrativa)
  */
