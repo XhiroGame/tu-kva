@@ -55,12 +55,13 @@ function getBaseClientUrl(req) {
 export async function getTables(req, res) {
   try {
     const { businessSlug } = req.params
+    const safeSlug = String(businessSlug || 'tu-kva').replace(/[^a-zA-Z0-9_-]/g, '') || 'tu-kva'
     const baseClientUrl = getBaseClientUrl(req)
 
     let { data: business } = await supabaseAdmin
       .from('businesses')
       .select('id, name, slug')
-      .or(`slug.eq.${businessSlug},slug.eq.tu-kva,id.eq.a1b2c3d4-0000-0000-0000-000000000001`)
+      .or(`slug.eq.${safeSlug},slug.eq.tu-kva,id.eq.a1b2c3d4-0000-0000-0000-000000000001`)
       .limit(1)
       .single()
 
@@ -112,6 +113,7 @@ export async function getTables(req, res) {
 export async function createTable(req, res) {
   try {
     const { businessSlug, tableName } = req.body
+    const safeSlug = String(businessSlug || 'tu-kva').replace(/[^a-zA-Z0-9_-]/g, '') || 'tu-kva'
     const baseClientUrl = getBaseClientUrl(req)
 
     if (!tableName || !tableName.trim()) {
@@ -121,7 +123,7 @@ export async function createTable(req, res) {
     let { data: business } = await supabaseAdmin
       .from('businesses')
       .select('id, slug')
-      .or(`slug.eq.${businessSlug},slug.eq.tu-kva,id.eq.a1b2c3d4-0000-0000-0000-000000000001`)
+      .or(`slug.eq.${safeSlug},slug.eq.tu-kva,id.eq.a1b2c3d4-0000-0000-0000-000000000001`)
       .limit(1)
       .maybeSingle()
 

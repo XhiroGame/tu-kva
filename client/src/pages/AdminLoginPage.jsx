@@ -53,7 +53,7 @@ function AdminLoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-dark-200 flex flex-col items-center justify-center p-6">
+    <div className="relative min-h-screen bg-dark-200 flex flex-col items-center justify-center p-6 overflow-hidden">
       {/* Background gradient */}
       <div className="absolute inset-0 bg-gradient-radial from-beer-500/5 via-transparent to-transparent pointer-events-none" />
 
