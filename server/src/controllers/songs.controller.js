@@ -8,6 +8,73 @@ const searchMemoryCache = new Map()
 const CACHE_TTL_MS = 1000 * 60 * 60 * 2 // 2 horas de duración
 const MAX_CACHE_ENTRIES = 400
 
+// Lista negra en memoria + persistida en Supabase (stream_url = 'BLOCKED_EMBED')
+const blockedVideoIds = new Set()
+let blockedLoadedAt = 0
+
+async function ensureBlockedListLoaded() {
+  // Refrescar lista negra desde Supabase cada 10 minutos
+  if (Date.now() - blockedLoadedAt < 10 * 60 * 1000 && blockedLoadedAt > 0) return
+  try {
+    const { data } = await supabaseAdmin
+      .from('songs')
+      .select('provider_song_id')
+      .eq('stream_url', 'BLOCKED_EMBED')
+      .limit(1000)
+
+    if (Array.isArray(data)) {
+      for (const row of data) {
+        if (row.provider_song_id) blockedVideoIds.add(String(row.provider_song_id))
+      }
+    }
+    blockedLoadedAt = Date.now()
+  } catch (err) {
+    console.warn('[Blocked List Sync]', err.message)
+  }
+}
+
+function isSongBlocked(song) {
+  if (!song) return true
+  const id = String(song.provider_song_id || '')
+  return !id || blockedVideoIds.has(id) || song.stream_url === 'BLOCKED_EMBED'
+}
+
+/**
+ * POST /api/songs/report-blocked
+ * Marca un video de YouTube como bloqueado por derechos (error 101/150/100)
+ * para que nunca vuelva a aparecer en el buscador ni en el ambiente automático.
+ */
+export async function reportBlockedSong(req, res) {
+  try {
+    const { provider_song_id, errorCode } = req.body || {}
+    const idStr = String(provider_song_id || '').trim()
+    if (!idStr) {
+      return res.status(400).json({ success: false, message: 'provider_song_id requerido' })
+    }
+
+    blockedVideoIds.add(idStr)
+
+    // Purgar de la caché en memoria inmediatamente
+    for (const [key, entry] of searchMemoryCache.entries()) {
+      const filtered = (entry.data || []).filter((s) => String(s.provider_song_id) !== idStr)
+      searchMemoryCache.set(key, { ...entry, data: filtered })
+    }
+
+    // Persistir en Supabase para que sobreviva reinicios del servidor
+    await supabaseAdmin
+      .from('songs')
+      .update({ stream_url: 'BLOCKED_EMBED', duration: 0 })
+      .eq('provider', 'youtube')
+      .eq('provider_song_id', idStr)
+
+    console.log(`[Blocked Song] Video ${idStr} añadido a lista negra (código ${errorCode || 'N/A'})`)
+    return res.json({ success: true, blockedId: idStr })
+  } catch (error) {
+    console.error('[Report Blocked Song Error]', error)
+    return res.status(500).json({ success: false, message: 'Error registrando video bloqueado' })
+  }
+}
+
 function getFromMemoryCache(key) {
   const cached = searchMemoryCache.get(key)
   if (!cached) return null
@@ -35,6 +102,8 @@ function setToMemoryCache(key, data) {
  */
 export async function searchSongs(req, res) {
   try {
+    await ensureBlockedListLoaded()
+
     const query = (req.query.q || '').trim()
     const limit = Math.min(parseInt(req.query.limit, 10) || 30, 45)
     const offset = parseInt(req.query.offset, 10) || 0
@@ -45,8 +114,10 @@ export async function searchSongs(req, res) {
     // 1. Revisar caché en memoria (Respuesta instantánea en < 5ms)
     const memoryCached = getFromMemoryCache(normalizedKey)
     if (memoryCached && memoryCached.length > 0) {
-      // Filtrar estrictamente menos de 10 minutos (600s)
-      const validCached = memoryCached.filter((s) => s.duration && s.duration < 600 && s.duration > 30)
+      // Filtrar estrictamente menos de 10 minutos (600s) y excluir lista negra
+      const validCached = memoryCached.filter(
+        (s) => !isSongBlocked(s) && s.duration && s.duration < 600 && s.duration > 30
+      )
       return res.json({
         success: true,
         source: 'memory_cache',
@@ -132,8 +203,9 @@ export async function searchSongs(req, res) {
       }
     }
 
-    // Filtrar estrictamente: solo canciones con duración válida y MENORES a 10 minutos (600s)
+    // Filtrar estrictamente: solo canciones no bloqueadas con duración válida y MENORES a 10 minutos (600s)
     const strictFilteredResults = results.filter((song) => {
+      if (isSongBlocked(song)) return false
       const d = song.duration || 0
       return d > 30 && d < 600
     })
@@ -184,6 +256,8 @@ export async function searchSongs(req, res) {
  */
 export async function getSmartFallbackSongs(req, res) {
   try {
+    await ensureBlockedListLoaded()
+
     const { businessSlug } = req.params
     const excludeParam = req.query.exclude || ''
     const excludeIds = new Set(
@@ -234,7 +308,7 @@ export async function getSmartFallbackSongs(req, res) {
     if (queueHistory && queueHistory.length > 0) {
       for (const item of queueHistory) {
         const s = item.songs
-        if (!s || !s.provider_song_id) continue
+        if (!s || !s.provider_song_id || isSongBlocked(s)) continue
         // Ignorar sesiones de más de 10 minutos
         if (s.duration && s.duration > 600) continue
 

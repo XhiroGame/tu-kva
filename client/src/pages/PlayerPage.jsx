@@ -9,7 +9,7 @@ import toast from 'react-hot-toast'
 
 import Logo from '@/components/ui/Logo'
 import { formatDuration } from '@/components/queue/SongCard'
-import { getQueue, updateQueueItem, getSmartFallback, searchSongs, addToQueue } from '@/lib/api'
+import { getQueue, updateQueueItem, getSmartFallback, searchSongs, addToQueue, reportBlockedSong } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 
 export default function PlayerPage() {
@@ -21,6 +21,7 @@ export default function PlayerPage() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
   const [playerReady, setPlayerReady] = useState(false)
+  const [needsAudioUnlock, setNeedsAudioUnlock] = useState(false)
   const [ambientGenre, setAmbientGenre] = useState('')
 
   // Estados del Buscador integrado para el personal del Bar
@@ -39,6 +40,9 @@ export default function PlayerPage() {
   const handleTrackEndedRef = useRef(null)
   const onErrorHandlerRef = useRef(null)
   const retryCountRef = useRef(0)
+  const bufferingSinceRef = useRef(null)
+  const unstartedSinceRef = useRef(null)
+  const manualPausedRef = useRef(false)
 
   // Mantener referencias sincronizadas con el estado actual
   useEffect(() => {
@@ -466,6 +470,10 @@ export default function PlayerPage() {
       const badId = badTrack?.songs?.provider_song_id
       if (badId) {
         recordPlayedSongId(badId)
+        // Reportar a la lista negra permanente del servidor para que no vuelva a salir en búsquedas
+        if (errorCode === 150 || errorCode === 101 || errorCode === 100) {
+          reportBlockedSong(badId, errorCode).catch(() => {})
+        }
       }
 
       // Códigos 101/150: Propietario del video bloqueó reproducción externa (LatinAutor/UMPG/etc.)
@@ -556,8 +564,7 @@ export default function PlayerPage() {
     }
   }, [])
 
-  // 7. Watchdog de progreso: Como respaldo si el evento de YouTube se pierde,
-  // solo verifica si la canción estuvo sonando y llegó al último segundo de reproducción
+  // 7. Watchdog de progreso, anti-buffering (>20s) y detección de Autoplay bloqueado por Chrome
   useEffect(() => {
     const watchdogInterval = setInterval(() => {
       if (!playerRef.current || isTransitioningRef.current) return
@@ -567,18 +574,48 @@ export default function PlayerPage() {
           const state = playerRef.current.getPlayerState()
 
           // Estado 1 = PLAYING
-          if (
-            state === 1 &&
-            typeof playerRef.current.getCurrentTime === 'function' &&
-            typeof playerRef.current.getDuration === 'function'
-          ) {
-            const currentTime = playerRef.current.getCurrentTime()
-            const duration = playerRef.current.getDuration()
+          if (state === 1) {
+            bufferingSinceRef.current = null
+            unstartedSinceRef.current = null
+            setNeedsAudioUnlock(false)
 
-            // Solo avanzar si la canción ya se escuchó por más de 10 segundos y llegó al final
-            if (duration > 30 && currentTime >= 10 && currentTime >= duration - 1.2) {
+            if (
+              typeof playerRef.current.getCurrentTime === 'function' &&
+              typeof playerRef.current.getDuration === 'function'
+            ) {
+              const currentTime = playerRef.current.getCurrentTime()
+              const duration = playerRef.current.getDuration()
+
+              // Solo avanzar si la canción ya se escuchó por más de 10 segundos y llegó al final
+              if (duration > 30 && currentTime >= 10 && currentTime >= duration - 1.2) {
+                handleTrackEndedRef.current?.()
+              }
+            }
+          } else if (state === 3) {
+            // Estado 3 = BUFFERING -> Si lleva más de 20s congelado por red, saltar automáticamente
+            unstartedSinceRef.current = null
+            if (!bufferingSinceRef.current) {
+              bufferingSinceRef.current = Date.now()
+            } else if (Date.now() - bufferingSinceRef.current > 20000) {
+              bufferingSinceRef.current = null
+              toast.error('Conexión lenta detectada. Pasando a la siguiente canción...', {
+                id: 'yt-buffer-skip',
+                duration: 3000,
+              })
+              isTransitioningRef.current = false
+              lastEndedVideoIdRef.current = null
               handleTrackEndedRef.current?.()
             }
+          } else if ((state === -1 || state === 5) && currentTrackRef.current && !manualPausedRef.current) {
+            // Estado -1 (UNSTARTED) o 5 (CUED) por > 3.5s -> Chrome bloqueó autoplay sin interacción
+            bufferingSinceRef.current = null
+            if (!unstartedSinceRef.current) {
+              unstartedSinceRef.current = Date.now()
+            } else if (Date.now() - unstartedSinceRef.current > 3500) {
+              setNeedsAudioUnlock(true)
+            }
+          } else {
+            bufferingSinceRef.current = null
           }
         }
       } catch (err) {
@@ -589,12 +626,29 @@ export default function PlayerPage() {
     return () => clearInterval(watchdogInterval)
   }, [])
 
+  const handleUnlockAudio = () => {
+    if (!playerRef.current) return
+    manualPausedRef.current = false
+    setNeedsAudioUnlock(false)
+    unstartedSinceRef.current = null
+    try {
+      playerRef.current.unMute?.()
+      setIsMuted(false)
+      playerRef.current.playVideo?.()
+      setIsPlaying(true)
+      toast.success('Sonido del bar activado')
+    } catch {}
+  }
+
   const togglePlay = () => {
     if (!playerRef.current) return
     if (isPlaying) {
+      manualPausedRef.current = true
       playerRef.current.pauseVideo()
       setIsPlaying(false)
     } else {
+      manualPausedRef.current = false
+      setNeedsAudioUnlock(false)
       playerRef.current.playVideo()
       setIsPlaying(true)
     }
@@ -667,6 +721,22 @@ export default function PlayerPage() {
         <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-4">
           <div className="relative aspect-video w-full rounded-3xl overflow-hidden bg-black border border-beer-500/30 shadow-2xl shadow-beer/10">
             <div id="yt-player-container" className="w-full h-full"></div>
+
+            {needsAudioUnlock && currentTrack && (
+              <div className="absolute inset-0 z-20 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
+                <button
+                  type="button"
+                  onClick={handleUnlockAudio}
+                  className="px-6 py-4 rounded-2xl bg-beer-gradient text-dark-200 font-black text-base sm:text-lg flex items-center gap-3 shadow-2xl shadow-beer/40 hover:scale-105 active:scale-95 transition-all animate-pulse"
+                >
+                  <Volume2 className="w-6 h-6" />
+                  <span>Tocar aquí para activar el sonido del bar</span>
+                </button>
+                <p className="text-xs text-gray-300 mt-3 max-w-sm">
+                  El navegador requiere un clic inicial para habilitar la reproducción automática con audio.
+                </p>
+              </div>
+            )}
 
             {!currentTrack && (
               <div className="absolute inset-0 bg-dark-100 flex flex-col items-center justify-center p-6 text-center">

@@ -63,6 +63,15 @@ async function apiFetch(endpoint, options = {}) {
   const data = await response.json()
 
   if (!response.ok) {
+    // Si la sesión expiró en rutas protegidas, cerrar sesión limpiamente para redirigir a /admin/login
+    if (
+      response.status === 401 &&
+      typeof window !== 'undefined' &&
+      (window.location.pathname.startsWith('/admin') || window.location.pathname.startsWith('/player'))
+    ) {
+      supabase.auth.signOut().catch(() => {})
+    }
+
     const error = new Error(data.message || 'API Error')
     error.status = response.status
     error.data = data
@@ -178,11 +187,27 @@ export const deleteTable = (tableId) =>
 // ---- Admin API ----
 
 /**
+ * Reporta un video bloqueado por derechos (error 101/150/100) a la lista negra del servidor
+ */
+export const reportBlockedSong = (providerSongId, errorCode) =>
+  apiFetch('/songs/report-blocked', {
+    method: 'POST',
+    body: JSON.stringify({ provider_song_id: providerSongId, errorCode }),
+  })
+
+/**
  * Get play history for a business (admin only).
  * @param {string} businessSlug
  * @param {object} options - { limit, offset }
  */
 export const getHistory = (businessSlug, options = {}) =>
   apiFetch(`/admin/${businessSlug}/history?limit=${options.limit || 50}&offset=${options.offset || 0}`)
+
+/**
+ * Get dashboard stats for a business (admin only).
+ * @param {string} businessSlug
+ */
+export const getAdminStats = (businessSlug) =>
+  apiFetch(`/admin/${businessSlug}/stats`)
 
 export default apiFetch

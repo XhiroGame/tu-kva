@@ -1,5 +1,6 @@
 import { Router } from 'express'
-import { searchSongs, getSmartFallbackSongs } from '../controllers/songs.controller.js'
+import { searchSongs, getSmartFallbackSongs, reportBlockedSong } from '../controllers/songs.controller.js'
+import { requireAuth } from '../middleware/auth.middleware.js'
 
 const router = Router()
 
@@ -13,5 +14,11 @@ router.get('/search', searchSongs)
  * Música ambiental inteligente basada en el gusto musical del bar
  */
 router.get('/smart-fallback/:businessSlug', getSmartFallbackSongs)
+
+/**
+ * POST /api/songs/report-blocked
+ * Marca un video bloqueado por derechos (error 101/150/100) en la lista negra
+ */
+router.post('/report-blocked', requireAuth, reportBlockedSong)
 
 export default router

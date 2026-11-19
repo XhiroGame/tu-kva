@@ -10,6 +10,7 @@ import NotFoundPage from '@/pages/NotFoundPage'
 
 // Guards
 import ProtectedRoute from '@/components/ui/ProtectedRoute'
+import ErrorBoundary from '@/components/ui/ErrorBoundary'
 
 /**
  * BEER MUSIC - Main App Router
@@ -25,8 +26,9 @@ import ProtectedRoute from '@/components/ui/ProtectedRoute'
  */
 function App() {
   return (
-    <BrowserRouter>
-      <AppProvider>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AppProvider>
         <Routes>
           {/* Client interface - accessed via QR code */}
           <Route
@@ -70,8 +72,9 @@ function App() {
           {/* 404 */}
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
-      </AppProvider>
-    </BrowserRouter>
+        </AppProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   )
 }
 

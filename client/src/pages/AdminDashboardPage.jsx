@@ -3,20 +3,21 @@ import { Link } from 'react-router-dom'
 import { 
   Music, QrCode, Trash2, Plus, Download, ExternalLink, 
   Play, Pause, SkipForward, LogOut, RefreshCw, Radio, 
-  CheckCircle, Utensils, AlertTriangle, MonitorSpeaker 
+  CheckCircle, Utensils, AlertTriangle, MonitorSpeaker,
+  BarChart3, History, Trophy, Clock
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 import Logo from '@/components/ui/Logo'
 import { useApp } from '@/context/AppContext'
-import { getQueue, updateQueueItem, removeFromQueue, getTables, createTable, deleteTable } from '@/lib/api'
+import { getQueue, updateQueueItem, removeFromQueue, getTables, createTable, deleteTable, getHistory, getAdminStats } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 
 export default function AdminDashboardPage() {
   const { user, signOut } = useApp()
   const businessSlug = 'tu-kva'
 
-  const [activeTab, setActiveTab] = useState('queue') // 'queue' | 'tables'
+  const [activeTab, setActiveTab] = useState('queue') // 'queue' | 'tables' | 'stats'
   
   // Estados de Playlist
   const [currentTrack, setCurrentTrack] = useState(null)
@@ -28,6 +29,33 @@ export default function AdminDashboardPage() {
   const [newTableName, setNewTableName] = useState('')
   const [isCreatingTable, setIsCreatingTable] = useState(false)
   const [isLoadingTables, setIsLoadingTables] = useState(false)
+
+  // Estados de Estadísticas e Historial
+  const [stats, setStats] = useState(null)
+  const [history, setHistory] = useState([])
+  const [isLoadingStats, setIsLoadingStats] = useState(false)
+
+  const fetchStatsAndHistory = async () => {
+    setIsLoadingStats(true)
+    try {
+      const [statsRes, historyRes] = await Promise.all([
+        getAdminStats(businessSlug),
+        getHistory(businessSlug, { limit: 30 }),
+      ])
+      if (statsRes?.success) setStats(statsRes.data || null)
+      if (historyRes?.success) setHistory(historyRes.data || [])
+    } catch (error) {
+      console.warn('Error fetching stats/history:', error)
+    } finally {
+      setIsLoadingStats(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === 'stats') {
+      fetchStatsAndHistory()
+    }
+  }, [activeTab])
 
   // 1. Cargar datos de la cola
   const fetchQueue = async () => {
@@ -204,6 +232,18 @@ export default function AdminDashboardPage() {
                 {tables.length}
               </span>
             </button>
+
+            <button
+              onClick={() => setActiveTab('stats')}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 ${
+                activeTab === 'stats'
+                  ? 'bg-beer-500 text-dark-200 shadow-sm shadow-beer/30'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span>Estadísticas</span>
+            </button>
           </nav>
         </div>
 
@@ -256,7 +296,17 @@ export default function AdminDashboardPage() {
             }`}
           >
             <QrCode className="w-4 h-4" />
-            <span>Mesas QR ({tables.length})</span>
+            <span>Mesas ({tables.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('stats')}
+            className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 ${
+              activeTab === 'stats' ? 'bg-beer-500 text-dark-200' : 'text-gray-400'
+            }`}
+          >
+            <BarChart3 className="w-4 h-4" />
+            <span>Stats</span>
           </button>
         </div>
 
@@ -503,6 +553,145 @@ export default function AdminDashboardPage() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* PESTAÑA 3: ESTADÍSTICAS E HISTORIAL */}
+        {activeTab === 'stats' && (
+          <div className="space-y-6 animate-fade-in">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold font-display text-white">
+                  Estadísticas e Historial del Bar
+                </h2>
+                <p className="text-xs text-gray-400">
+                  Resumen en tiempo real de actividad musical en Tu K-VA
+                </p>
+              </div>
+              <button
+                onClick={fetchStatsAndHistory}
+                className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-colors"
+                title="Actualizar estadísticas"
+              >
+                <RefreshCw className={`w-4 h-4 ${isLoadingStats ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+
+            {/* KPIs */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="card p-5 bg-dark-50/90 rounded-3xl border-white/10">
+                <p className="text-xs text-gray-400 uppercase font-bold tracking-wider">Reproducidas Hoy</p>
+                <p className="text-3xl font-black text-beer-400 mt-1">{stats?.playedToday ?? 0}</p>
+              </div>
+              <div className="card p-5 bg-dark-50/90 rounded-3xl border-white/10">
+                <p className="text-xs text-gray-400 uppercase font-bold tracking-wider">En Espera Ahora</p>
+                <p className="text-3xl font-black text-white mt-1">{stats?.pendingInQueue ?? queue.length}</p>
+              </div>
+              <div className="card p-5 bg-dark-50/90 rounded-3xl border-white/10">
+                <p className="text-xs text-gray-400 uppercase font-bold tracking-wider">Mesas Activas</p>
+                <p className="text-3xl font-black text-green-400 mt-1">{stats?.activeTables ?? tables.length}</p>
+              </div>
+            </div>
+
+            {/* Top 5 Canciones Más Sonadas */}
+            <div className="card p-6 bg-dark-50/90 rounded-3xl border-white/10">
+              <h3 className="text-base font-bold text-white flex items-center gap-2 mb-4">
+                <Trophy className="w-4 h-4 text-beer-400" />
+                <span>Top 5 Canciones Más Sonadas</span>
+              </h3>
+              {stats?.topSongs?.length > 0 ? (
+                <div className="space-y-2.5">
+                  {stats.topSongs.map((song, idx) => (
+                    <div
+                      key={song.provider_song_id}
+                      className="flex items-center justify-between p-3 gap-3 rounded-2xl bg-dark-100 border border-white/5"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <span className="w-7 h-7 rounded-full bg-beer-500/20 text-beer-400 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                          #{idx + 1}
+                        </span>
+                        {song.thumbnail_url && (
+                          <img
+                            src={song.thumbnail_url}
+                            alt={song.title}
+                            className="w-10 h-10 rounded-xl object-cover flex-shrink-0 bg-black"
+                          />
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-white truncate">{song.title}</p>
+                          <p className="text-xs text-gray-400 truncate">{song.artist}</p>
+                        </div>
+                      </div>
+                      <span className="badge-beer text-xs font-bold flex-shrink-0">
+                        {song.playCount}x
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 text-center py-6">
+                  Aún no hay suficientes reproducciones registradas.
+                </p>
+              )}
+            </div>
+
+            {/* Historial Reciente */}
+            <div className="card p-6 bg-dark-50/90 rounded-3xl border-white/10">
+              <h3 className="text-base font-bold text-white flex items-center gap-2 mb-4">
+                <History className="w-4 h-4 text-beer-400" />
+                <span>Historial Reciente</span>
+              </h3>
+              {history.length > 0 ? (
+                <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
+                  {history.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between p-3 gap-3 rounded-2xl bg-dark-100 border border-white/5"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        {item.songs?.thumbnail_url && (
+                          <img
+                            src={item.songs.thumbnail_url}
+                            alt={item.songs.title}
+                            className="w-10 h-10 rounded-xl object-cover flex-shrink-0 bg-black"
+                          />
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-white truncate">
+                            {item.songs?.title || 'Canción'}
+                          </p>
+                          <p className="text-xs text-gray-400 truncate">
+                            {item.songs?.artist || 'Artista'} • {item.tables?.table_name || 'La Barra'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            item.status === 'skipped'
+                              ? 'bg-yellow-500/20 text-yellow-400'
+                              : 'bg-green-500/20 text-green-400'
+                          }`}
+                        >
+                          {item.status === 'skipped' ? 'Saltada' : 'Reproducida'}
+                        </span>
+                        <p className="text-[10px] text-gray-500 mt-1 flex items-center justify-end gap-1">
+                          <Clock className="w-3 h-3" />
+                          {new Date(item.played_at || item.requested_at).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 text-center py-6">
+                  No hay canciones en el historial todavía.
+                </p>
+              )}
             </div>
           </div>
         )}
