@@ -152,6 +152,26 @@ export async function createTable(req, res) {
       return res.status(404).json({ success: false, message: 'Establecimiento no encontrado' })
     }
 
+    // Validar límite de mesas según el plan contratado en CJ Systems (Básico: 10, Estándar: 25, Pro: Ilimitadas)
+    const bizConfig = await getBusinessBranding(business.id)
+    const maxTables = bizConfig?.maxTables || 10
+    const planLabel = bizConfig?.planLabel || 'Plan Básico'
+
+    const { count: currentTablesCount } = await supabaseAdmin
+      .from('tables')
+      .select('id', { count: 'exact', head: true })
+      .eq('business_id', business.id)
+
+    if ((currentTablesCount ?? 0) >= maxTables) {
+      return res.status(403).json({
+        success: false,
+        code: 'PLAN_TABLE_LIMIT_REACHED',
+        maxTables,
+        planLabel,
+        message: `Has alcanzado el límite de ${maxTables} mesas de tu ${planLabel}. Contacta a CJ Systems (Ing. Ciro José · WhatsApp 311 871 5006) para ampliar tu plan.`,
+      })
+    }
+
     const qrToken = `qr-${uuidv4().slice(0, 8)}`
 
     const { data: newTable, error } = await supabaseAdmin

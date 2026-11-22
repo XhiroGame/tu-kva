@@ -49,8 +49,15 @@ export default function AdminDashboardPage() {
     secondaryColor: currentBranding.secondaryColor || '#f97316',
     maxSongsPerWindow: currentBranding.maxSongsPerWindow || 2,
     windowMinutes: currentBranding.windowMinutes || 10,
+    planTier: currentBranding.planTier || 'basico',
+    planLabel: currentBranding.planLabel || 'Plan Básico',
+    maxTables: currentBranding.maxTables || 10,
   })
   const [isSavingBranding, setIsSavingBranding] = useState(false)
+
+  const planMaxTables = brandingForm.maxTables || currentBranding.maxTables || 10
+  const planLabel = brandingForm.planLabel || currentBranding.planLabel || 'Plan Básico'
+  const isAtTableLimit = tables.length >= planMaxTables
 
   const fetchStatsAndHistory = async () => {
     setIsLoadingStats(true)
@@ -81,6 +88,9 @@ export default function AdminDashboardPage() {
           secondaryColor: b.secondaryColor || '#f97316',
           maxSongsPerWindow: b.maxSongsPerWindow || 2,
           windowMinutes: b.windowMinutes || 10,
+          planTier: b.planTier || 'basico',
+          planLabel: b.planLabel || 'Plan Básico',
+          maxTables: b.maxTables || 10,
         }
         setBrandingForm(updatedForm)
         applyBusinessTheme(b)
@@ -410,34 +420,61 @@ export default function AdminDashboardPage() {
                       Se generará automáticamente un código QR único para <span className="text-beer-400 font-mono">/{businessSlug}/table/...</span>
                     </p>
                   </div>
-                  {isSuperAdmin && (
-                    <span className="badge-beer text-xs self-start sm:self-auto">
-                      Negocio activo: {businessName}
-                    </span>
-                  )}
+                  <span
+                    className={`text-xs font-bold px-3 py-1 rounded-full border self-start sm:self-auto ${
+                      isAtTableLimit
+                        ? 'bg-red-500/15 text-red-400 border-red-500/30'
+                        : 'bg-beer-500/15 text-beer-400 border-beer-500/30'
+                    }`}
+                  >
+                    {planLabel} • {tables.length} / {planMaxTables >= 999 ? '∞' : planMaxTables} mesas
+                  </span>
                 </div>
 
-                <form onSubmit={handleCreateTable} className="flex flex-col sm:flex-row gap-3">
-                  <div className="relative flex-1">
-                    <Utensils className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                    <input
-                      type="text"
-                      value={newTableName}
-                      onChange={(e) => setNewTableName(e.target.value)}
-                      placeholder="Ejemplo: Mesa 2, Barra VIP, Terraza 5..."
-                      className="input-field pl-10"
-                      required
-                    />
+                {isAtTableLimit ? (
+                  <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-red-300">
+                        Límite de {planMaxTables} mesas alcanzado ({planLabel})
+                      </p>
+                      <p className="text-xs text-gray-300 mt-0.5">
+                        Para agregar más mesas y códigos QR, solicita la ampliación de tu plan con <strong className="text-beer-400">CJ Systems (Ing. Ciro José)</strong>.
+                      </p>
+                    </div>
+                    <a
+                      href={`https://wa.me/573118715006?text=${encodeURIComponent(
+                        `¡Hola Ing. Ciro José! Llegué al límite de ${planMaxTables} mesas en ${businessName} (${planLabel}) y quiero ampliar mi plan en CJ Systems.`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-primary py-2.5 px-5 text-xs whitespace-nowrap text-center"
+                    >
+                      Ampliar Plan por WhatsApp
+                    </a>
                   </div>
-                  <button
-                    type="submit"
-                    disabled={isCreatingTable || !newTableName.trim()}
-                    className="btn-primary flex items-center justify-center gap-2 py-3 px-6 whitespace-nowrap"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>{isCreatingTable ? 'Creando...' : 'Crear Mesa & QR'}</span>
-                  </button>
-                </form>
+                ) : (
+                  <form onSubmit={handleCreateTable} className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1">
+                      <Utensils className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                      <input
+                        type="text"
+                        value={newTableName}
+                        onChange={(e) => setNewTableName(e.target.value)}
+                        placeholder="Ejemplo: Mesa 2, Barra VIP, Terraza 5..."
+                        className="input-field pl-10"
+                        required
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={isCreatingTable || !newTableName.trim()}
+                      className="btn-primary flex items-center justify-center gap-2 py-3 px-6 whitespace-nowrap"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>{isCreatingTable ? 'Creando...' : 'Crear Mesa & QR'}</span>
+                    </button>
+                  </form>
+                )}
               </div>
 
               {/* Listado de Mesas con sus QR */}

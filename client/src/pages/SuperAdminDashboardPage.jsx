@@ -30,8 +30,15 @@ import {
   getSuperAdminBusinesses,
   createSuperAdminBusiness,
   toggleBusinessStatus,
+  updateBusinessPlan,
 } from '@/lib/api'
 import { BRAND_COLOR_PRESETS, applyBusinessTheme } from '@/lib/theme'
+
+const PLAN_OPTIONS = [
+  { id: 'basico', label: 'Plan Básico', maxTables: 10, price: '$50.000/mes', desc: 'Hasta 10 mesas QR' },
+  { id: 'estandar', label: 'Plan Estándar', maxTables: 25, price: '$75.000/mes', desc: '11 a 25 mesas QR' },
+  { id: 'pro', label: 'Plan Pro', maxTables: 999, price: '$100.000/mes', desc: 'Mesas QR ilimitadas' },
+]
 
 /**
  * Panel Maestro Independiente de SuperAdmin — CJ Systems (Ing. Ciro José)
@@ -57,6 +64,7 @@ export default function SuperAdminDashboardPage() {
     initialTablesCount: 5,
     maxSongsPerWindow: 2,
     windowMinutes: 10,
+    planTier: 'basico',
   })
 
   // Subir logotipo desde archivo y optimizarlo automáticamente a Base64 ligero
@@ -144,6 +152,7 @@ export default function SuperAdminDashboardPage() {
           initialTablesCount: 5,
           maxSongsPerWindow: 2,
           windowMinutes: 10,
+          planTier: 'basico',
         })
         await fetchAllBusinesses()
       }
@@ -164,6 +173,19 @@ export default function SuperAdminDashboardPage() {
       }
     } catch (error) {
       toast.error(error.message || 'Error al actualizar estado del negocio')
+    }
+  }
+
+  // Cambiar el plan contratado de un negocio existente en 1 clic
+  const handleChangeBusinessPlan = async (biz, newPlanTier) => {
+    try {
+      const res = await updateBusinessPlan(biz.id, newPlanTier)
+      if (res?.success) {
+        toast.success(res.message || 'Plan actualizado')
+        fetchAllBusinesses()
+      }
+    } catch (error) {
+      toast.error(error.message || 'Error al cambiar el plan del negocio')
     }
   }
 
@@ -431,6 +453,44 @@ export default function SuperAdminDashboardPage() {
                     placeholder="Ej: Gastrobar & Música"
                     className="input-field pl-10 text-sm"
                   />
+                </div>
+              </div>
+
+              {/* Selector de Plan Contratado (Controla el límite máximo de mesas QR) */}
+              <div className="sm:col-span-2 lg:col-span-3 space-y-2">
+                <label className="block text-xs font-semibold text-gray-300">
+                  Plan Contratado en CJ Systems (Define el límite máximo de mesas QR) *
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {PLAN_OPTIONS.map((plan) => {
+                    const isSelected = newBizForm.planTier === plan.id
+                    return (
+                      <button
+                        key={plan.id}
+                        type="button"
+                        onClick={() => {
+                          setNewBizForm((prev) => ({
+                            ...prev,
+                            planTier: plan.id,
+                            initialTablesCount: Math.min(prev.initialTablesCount, plan.maxTables),
+                          }))
+                        }}
+                        className={`p-3.5 rounded-2xl border text-left transition-all ${
+                          isSelected
+                            ? 'bg-beer-500/15 border-beer-400 shadow-sm shadow-beer/20'
+                            : 'bg-dark-100/80 border-white/10 hover:border-white/25'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-display font-bold text-sm text-white">
+                            {plan.label}
+                          </span>
+                          <span className="text-xs font-black text-beer-400">{plan.price}</span>
+                        </div>
+                        <p className="text-[11px] text-gray-400 mt-1">{plan.desc}</p>
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
 
@@ -803,7 +863,39 @@ export default function SuperAdminDashboardPage() {
                       </div>
                     </div>
 
-                    <div className="space-y-1 text-xs text-gray-400">
+                    <div className="space-y-2 text-xs text-gray-400">
+                      {/* Selector rápido de Plan para negocios ya creados */}
+                      <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-dark-100/80 border border-white/10">
+                        <div>
+                          <p className="text-[11px] font-bold text-white">Plan Contratado</p>
+                          <p className="text-[10px] text-gray-400">
+                            Cupo:{' '}
+                            <span className="text-beer-400 font-semibold">
+                              {biz.totalTables}/
+                              {(biz.branding?.maxTables || 10) >= 999
+                                ? '∞'
+                                : biz.branding?.maxTables || 10}{' '}
+                              mesas
+                            </span>
+                          </p>
+                        </div>
+                        <select
+                          value={biz.branding?.planTier || 'basico'}
+                          onChange={(e) => handleChangeBusinessPlan(biz, e.target.value)}
+                          className="bg-dark-50 border border-beer-500/40 rounded-lg px-2.5 py-1.5 text-xs font-bold text-beer-400 focus:outline-none focus:ring-1 focus:ring-beer-400 cursor-pointer"
+                        >
+                          <option value="basico" className="bg-dark-100 text-white">
+                            Básico (10 mesas · $50k)
+                          </option>
+                          <option value="estandar" className="bg-dark-100 text-white">
+                            Estándar (25 mesas · $75k)
+                          </option>
+                          <option value="pro" className="bg-dark-100 text-white">
+                            Pro (Ilimitadas · $100k)
+                          </option>
+                        </select>
+                      </div>
+
                       <p>
                         <strong className="text-gray-300">Regla por mesa:</strong>{' '}
                         <span className="text-beer-400 font-semibold">

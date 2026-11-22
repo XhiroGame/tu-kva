@@ -2,6 +2,26 @@ import supabaseAdmin from '../config/supabase.js'
 
 const BRAND_PROVIDER = 'cj_branding'
 
+export const PLAN_LIMITS = {
+  basico: { id: 'basico', label: 'Plan Básico', maxTables: 10, priceMonthly: 50000 },
+  estandar: { id: 'estandar', label: 'Plan Estándar', maxTables: 25, priceMonthly: 75000 },
+  pro: { id: 'pro', label: 'Plan Pro', maxTables: 999, priceMonthly: 100000 },
+}
+
+export function resolvePlanConfig(planTier, customMaxTables) {
+  const key = String(planTier || 'basico').toLowerCase()
+  const base = PLAN_LIMITS[key] || PLAN_LIMITS.basico
+  const maxTables =
+    Number.isFinite(Number(customMaxTables)) && Number(customMaxTables) >= 1
+      ? parseInt(customMaxTables, 10)
+      : base.maxTables
+  return {
+    planTier: base.id,
+    planLabel: base.label,
+    maxTables,
+  }
+}
+
 const DEFAULT_BRANDING = {
   subtitle: 'Cervecería & Música',
   logoUrl: '',
@@ -9,6 +29,9 @@ const DEFAULT_BRANDING = {
   secondaryColor: '#f97316',
   maxSongsPerWindow: 2,
   windowMinutes: 10,
+  planTier: 'basico',
+  planLabel: 'Plan Básico',
+  maxTables: 10,
 }
 
 // Caché en memoria para respuestas instantáneas
@@ -44,6 +67,8 @@ export async function getBusinessBranding(businessId) {
       parsedColors = {}
     }
 
+    const planCfg = resolvePlanConfig(parsedColors.planTier, parsedColors.maxTables)
+
     const branding = {
       subtitle: row.artist || DEFAULT_BRANDING.subtitle,
       logoUrl: row.thumbnail_url || '',
@@ -57,6 +82,9 @@ export async function getBusinessBranding(businessId) {
         Number.isFinite(Number(parsedColors.windowMinutes)) && Number(parsedColors.windowMinutes) >= 1
           ? Math.min(Math.max(parseInt(parsedColors.windowMinutes, 10), 1), 180)
           : DEFAULT_BRANDING.windowMinutes,
+      planTier: planCfg.planTier,
+      planLabel: planCfg.planLabel,
+      maxTables: planCfg.maxTables,
     }
 
     brandingCache.set(String(businessId), { data: branding, loadedAt: Date.now() })
@@ -72,7 +100,7 @@ export async function getBusinessBranding(businessId) {
  */
 export async function saveBusinessBranding(
   businessId,
-  { name, subtitle, logoUrl, primaryColor, secondaryColor, maxSongsPerWindow, windowMinutes }
+  { name, subtitle, logoUrl, primaryColor, secondaryColor, maxSongsPerWindow, windowMinutes, planTier, maxTables }
 ) {
   if (!businessId) throw new Error('businessId requerido')
 
@@ -96,6 +124,12 @@ export async function saveBusinessBranding(
       ? Math.min(Math.max(parseInt(windowMinutes, 10) || DEFAULT_BRANDING.windowMinutes, 1), 180)
       : existing.windowMinutes || DEFAULT_BRANDING.windowMinutes
 
+  const targetTier = planTier !== undefined && planTier !== null && planTier !== ''
+    ? planTier
+    : existing.planTier || DEFAULT_BRANDING.planTier
+
+  const planCfg = resolvePlanConfig(targetTier, maxTables)
+
   const cleanBranding = {
     subtitle: typeof subtitle === 'string' ? subtitle.trim() : existing.subtitle || DEFAULT_BRANDING.subtitle,
     logoUrl: typeof logoUrl === 'string' ? logoUrl.trim() : existing.logoUrl || '',
@@ -107,6 +141,9 @@ export async function saveBusinessBranding(
       : existing.secondaryColor || DEFAULT_BRANDING.secondaryColor,
     maxSongsPerWindow: parsedMaxSongs,
     windowMinutes: parsedWindowMinutes,
+    planTier: planCfg.planTier,
+    planLabel: planCfg.planLabel,
+    maxTables: planCfg.maxTables,
   }
 
   // 2. Persistir en la tabla songs bajo el proveedor reservado 'cj_branding' (no requiere migración SQL manual)
@@ -125,6 +162,8 @@ export async function saveBusinessBranding(
           secondaryColor: cleanBranding.secondaryColor,
           maxSongsPerWindow: cleanBranding.maxSongsPerWindow,
           windowMinutes: cleanBranding.windowMinutes,
+          planTier: cleanBranding.planTier,
+          maxTables: cleanBranding.maxTables,
         }),
       },
       { onConflict: 'provider,provider_song_id' }

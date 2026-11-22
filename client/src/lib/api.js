@@ -277,6 +277,17 @@ export const createSuperAdminBusiness = (payload) =>
   })
 
 /**
+ * Update the subscription plan tier for a client business (basico | estandar | pro).
+ * @param {string} businessId
+ * @param {string} planTier
+ */
+export const updateBusinessPlan = (businessId, planTier) =>
+  apiFetch(`/admin/super/businesses/${businessId}/plan`, {
+    method: 'PATCH',
+    body: JSON.stringify({ planTier }),
+  })
+
+/**
  * Activate or pause all tables of a client business (subscription control).
  * @param {string} businessId
  * @param {boolean} active

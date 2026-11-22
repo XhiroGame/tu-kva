@@ -302,7 +302,7 @@ router.post('/super/businesses', async (req, res) => {
       }
     }
 
-    // 6. Guardar branding inicial y límites antimonopolio personalizados si se proporcionaron
+    // 6. Guardar branding inicial, plan contratado y límites antimonopolio personalizados
     const {
       subtitle,
       logoUrl,
@@ -310,6 +310,7 @@ router.post('/super/businesses', async (req, res) => {
       secondaryColor,
       maxSongsPerWindow,
       windowMinutes,
+      planTier,
     } = req.body || {}
     const branding = await saveBusinessBranding(newBusiness.id, {
       name: newBusiness.name,
@@ -319,10 +320,12 @@ router.post('/super/businesses', async (req, res) => {
       secondaryColor: secondaryColor || '#f97316',
       maxSongsPerWindow: maxSongsPerWindow ?? 2,
       windowMinutes: windowMinutes ?? 10,
+      planTier: planTier || 'basico',
     })
 
-    // 7. Crear mesas iniciales con sus tokens QR listos para imprimir
-    const tablesCount = Math.min(Math.max(parseInt(initialTablesCount, 10) || 0, 0), 30)
+    // 7. Crear mesas iniciales respetando el límite del plan contratado
+    const planMaxTables = branding.maxTables || 10
+    const tablesCount = Math.min(Math.max(parseInt(initialTablesCount, 10) || 0, 0), Math.min(planMaxTables, 50))
     if (tablesCount > 0) {
       const tablesToInsert = Array.from({ length: tablesCount }, (_, i) => ({
         business_id: newBusiness.id,
@@ -348,6 +351,38 @@ router.post('/super/businesses', async (req, res) => {
       success: false,
       message: error.message || 'Error al crear el nuevo negocio',
     })
+  }
+})
+
+/**
+ * PATCH /api/admin/super/businesses/:businessId/plan
+ * Cambia el plan contratado de un negocio ya existente (basico: 10 mesas, estandar: 25 mesas, pro: ilimitadas)
+ */
+router.patch('/super/businesses/:businessId/plan', async (req, res) => {
+  try {
+    const isSuper = await checkIsSuperAdmin(req.user)
+    if (!isSuper) {
+      return res.status(403).json({
+        success: false,
+        message: 'Acceso restringido a CJ Systems SuperAdmin',
+      })
+    }
+
+    const { businessId } = req.params
+    const { planTier } = req.body || {}
+
+    const updated = await saveBusinessBranding(businessId, {
+      planTier: planTier || 'basico',
+    })
+
+    return res.json({
+      success: true,
+      message: `Plan actualizado a ${updated.planLabel} (${updated.maxTables >= 999 ? 'Mesas ilimitadas' : `hasta ${updated.maxTables} mesas`})`,
+      branding: updated,
+    })
+  } catch (error) {
+    console.error('[SuperAdmin Update Plan Error]', error)
+    return res.status(500).json({ success: false, message: 'Error al actualizar el plan del negocio' })
   }
 })
 
@@ -433,7 +468,7 @@ router.put('/:businessSlug/branding', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Establecimiento no encontrado' })
     }
 
-    const { name, subtitle, logoUrl, primaryColor, secondaryColor, maxSongsPerWindow, windowMinutes } = req.body || {}
+    const { name, subtitle, logoUrl, primaryColor, secondaryColor, maxSongsPerWindow, windowMinutes, planTier } = req.body || {}
     const updatedBranding = await saveBusinessBranding(business.id, {
       name: name || business.name,
       subtitle,
@@ -442,6 +477,7 @@ router.put('/:businessSlug/branding', async (req, res) => {
       secondaryColor,
       maxSongsPerWindow,
       windowMinutes,
+      planTier,
     })
 
     const updatedName = name && name.trim() ? name.trim() : business.name
