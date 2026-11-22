@@ -45,17 +45,11 @@ export default function LandingPage() {
           </div>
 
           <div className="flex items-center gap-2.5 sm:gap-3">
-            <Link
-              to="/admin/login"
-              className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs sm:text-sm font-semibold text-gray-200 flex items-center gap-1.5 transition-all"
-            >
-              <Lock className="w-3.5 h-3.5 text-beer-400" />
-              <span>Acceso Clientes</span>
-            </Link>
-
             <a
-              href="#contacto"
-              className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-beer-gradient text-dark-200 font-bold text-xs sm:text-sm shadow-beer hover:brightness-110 transition-all"
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-beer-gradient text-dark-200 font-bold text-xs sm:text-sm shadow-beer hover:brightness-110 transition-all"
             >
               <span>Solicitar Demo</span>
               <ArrowRight className="w-4 h-4" />
