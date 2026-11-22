@@ -29,23 +29,25 @@ function getDeviceId() {
   }
 }
 
-function getRecentRequests() {
+function getRecentRequests(windowMinutes = 10, businessSlug = 'tu-kva') {
   try {
-    const raw = localStorage.getItem('tukva_order_history')
+    const storageKey = `tukva_order_history_${businessSlug}`
+    const raw = localStorage.getItem(storageKey) || (businessSlug === 'tu-kva' ? localStorage.getItem('tukva_order_history') : null)
     if (!raw) return []
     const list = JSON.parse(raw)
-    const tenMinutesAgo = Date.now() - 10 * 60 * 1000
-    return list.filter((ts) => ts > tenMinutesAgo)
+    const windowAgo = Date.now() - windowMinutes * 60 * 1000
+    return list.filter((ts) => ts > windowAgo)
   } catch {
     return []
   }
 }
 
-function recordLocalRequest() {
+function recordLocalRequest(windowMinutes = 10, businessSlug = 'tu-kva') {
   try {
-    const valid = getRecentRequests()
+    const storageKey = `tukva_order_history_${businessSlug}`
+    const valid = getRecentRequests(windowMinutes, businessSlug)
     valid.push(Date.now())
-    localStorage.setItem('tukva_order_history', JSON.stringify(valid))
+    localStorage.setItem(storageKey, JSON.stringify(valid))
     return valid
   } catch {
     return []
@@ -79,21 +81,29 @@ export default function ClientPage() {
     logoUrl: '',
     primaryColor: '#f59e0b',
     secondaryColor: '#f97316',
+    maxSongsPerWindow: 2,
+    windowMinutes: 10,
   })
+
+  const maxSongsLimit = Math.max(1, parseInt(businessBranding?.maxSongsPerWindow, 10) || 2)
+  const windowMinutesLimit = Math.max(1, parseInt(businessBranding?.windowMinutes, 10) || 10)
 
   // Playlist en tiempo real
   const [currentTrack, setCurrentTrack] = useState(null)
   const [queue, setQueue] = useState([])
 
-  // Control de cuota antimonopolio (máximo 2 pedidos cada 10 min)
-  const [recentRequests, setRecentRequests] = useState(getRecentRequests)
+  // Control de cuota antimonopolio configurable por negocio
+  const [recentRequests, setRecentRequests] = useState(() =>
+    getRecentRequests(10, businessSlug)
+  )
 
   useEffect(() => {
+    setRecentRequests(getRecentRequests(windowMinutesLimit, businessSlug))
     const timer = setInterval(() => {
-      setRecentRequests(getRecentRequests())
+      setRecentRequests(getRecentRequests(windowMinutesLimit, businessSlug))
     }, 10000)
     return () => clearInterval(timer)
-  }, [])
+  }, [windowMinutesLimit, businessSlug])
 
   // 0. Validar el token QR una sola vez (no en cada polling de 3s)
   useEffect(() => {
@@ -311,14 +321,15 @@ export default function ClientPage() {
     loadSuggestedSongs()
   }
 
-  // 7. Enviar pedido a la base de datos real con control antimonopolio (2 canciones cada 10 min)
+  // 7. Enviar pedido a la base de datos real con control antimonopolio configurable por negocio
   const handleAddSong = async (song) => {
-    const currentRecent = getRecentRequests()
-    if (currentRecent.length >= 2) {
+    const currentRecent = getRecentRequests(windowMinutesLimit, businessSlug)
+    if (currentRecent.length >= maxSongsLimit) {
       const oldest = Math.min(...currentRecent)
-      const minutesRemaining = Math.max(1, Math.ceil((oldest + 10 * 60 * 1000 - Date.now()) / 60000))
+      const minutesRemaining = Math.max(1, Math.ceil((oldest + windowMinutesLimit * 60 * 1000 - Date.now()) / 60000))
+      const songsText = maxSongsLimit === 1 ? '1 canción' : `${maxSongsLimit} canciones`
       toast.error(
-        `Límite alcanzado: Máximo 2 canciones cada 10 minutos. Podrás pedir otra en aprox. ${minutesRemaining} min.`,
+        `Límite alcanzado: Máximo ${songsText} cada ${windowMinutesLimit} minutos. Podrás pedir otra en aprox. ${minutesRemaining} min.`,
         { id: 'rate-limit-toast', duration: 4500 }
       )
       return
@@ -336,22 +347,22 @@ export default function ClientPage() {
 
       if (result.success) {
         setAddedSongIds((prev) => new Set(prev).add(song.provider_song_id))
-        recordLocalRequest()
-        const updatedRequests = getRecentRequests()
+        recordLocalRequest(windowMinutesLimit, businessSlug)
+        const updatedRequests = getRecentRequests(windowMinutesLimit, businessSlug)
         setRecentRequests(updatedRequests)
 
         // Refrescar de inmediato la cola local
         await fetchQueueData()
 
-        const remaining = Math.max(0, 2 - updatedRequests.length)
+        const remaining = Math.max(0, maxSongsLimit - updatedRequests.length)
         toast.success(
           <div>
             <p className="font-bold">¡Canción agregada!</p>
             <p className="text-xs text-gray-300">"{song.title}" entró a los turnos</p>
             <p className="text-[11px] text-beer-400 font-semibold mt-1">
               {remaining > 0
-                ? `Te queda ${remaining} pedido disponible en este turno de 10 min`
-                : 'Has utilizado tus 2 pedidos de este turno de 10 min'}
+                ? `Te ${remaining === 1 ? 'queda 1 pedido disponible' : `quedan ${remaining} pedidos disponibles`} en este turno de ${windowMinutesLimit} min`
+                : `Has utilizado ${maxSongsLimit === 1 ? 'tu pedido' : `tus ${maxSongsLimit} pedidos`} de este turno de ${windowMinutesLimit} min`}
             </p>
           </div>,
           { duration: 4000 }
@@ -359,7 +370,7 @@ export default function ClientPage() {
       }
     } catch (error) {
       toast.error(error.message || 'No se pudo agregar la canción')
-      setRecentRequests(getRecentRequests())
+      setRecentRequests(getRecentRequests(windowMinutesLimit, businessSlug))
     } finally {
       setAddingSongId(null)
     }
@@ -396,7 +407,7 @@ export default function ClientPage() {
           tableName={tableName}
         />
 
-        {/* Indicador visual de cuota antimonopolio (2 canciones cada 10 min) */}
+        {/* Indicador visual de cuota antimonopolio configurable por negocio */}
         <div className="mt-2.5 px-3 py-1.5 rounded-2xl bg-dark-50/80 border border-beer-500/20 flex items-center justify-between text-xs">
           <div className="flex items-center gap-1.5 text-gray-300">
             <Clock className="w-3.5 h-3.5 text-beer-400 flex-shrink-0" />
@@ -405,16 +416,18 @@ export default function ClientPage() {
           <div className="flex items-center gap-1.5">
             <span
               className={`text-[11px] font-bold px-2 py-0.5 rounded-lg border ${
-                recentRequests.length >= 2
+                recentRequests.length >= maxSongsLimit
                   ? 'bg-red-500/20 text-red-400 border-red-500/30'
                   : 'bg-beer-500/20 text-beer-400 border-beer-500/30'
               }`}
             >
-              {recentRequests.length >= 2
-                ? 'Límite alcanzado (2/2)'
-                : `${2 - recentRequests.length} de 2 disponibles`}
+              {recentRequests.length >= maxSongsLimit
+                ? `Límite alcanzado (${maxSongsLimit}/${maxSongsLimit})`
+                : `${Math.max(0, maxSongsLimit - recentRequests.length)} de ${maxSongsLimit} ${
+                    maxSongsLimit === 1 ? 'disponible' : 'disponibles'
+                  }`}
             </span>
-            <span className="text-[10px] text-gray-500 hidden xs:inline">(c/ 10 min)</span>
+            <span className="text-[10px] text-gray-500 hidden xs:inline">(c/ {windowMinutesLimit} min)</span>
           </div>
         </div>
 

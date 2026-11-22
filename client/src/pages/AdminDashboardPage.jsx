@@ -40,13 +40,15 @@ export default function AdminDashboardPage() {
   const [history, setHistory] = useState([])
   const [isLoadingStats, setIsLoadingStats] = useState(false)
 
-  // Estados de Personalización de Marca (Nombre, Logo, Subtítulo y Colores)
+  // Estados de Personalización de Marca (Nombre, Logo, Subtítulo, Colores y Regla Antimonopolio)
   const [brandingForm, setBrandingForm] = useState({
     name: businessName,
     subtitle: currentBranding.subtitle || 'Cervecería & Música',
     logoUrl: currentBranding.logoUrl || '',
     primaryColor: currentBranding.primaryColor || '#f59e0b',
     secondaryColor: currentBranding.secondaryColor || '#f97316',
+    maxSongsPerWindow: currentBranding.maxSongsPerWindow || 2,
+    windowMinutes: currentBranding.windowMinutes || 10,
   })
   const [isSavingBranding, setIsSavingBranding] = useState(false)
 
@@ -77,6 +79,8 @@ export default function AdminDashboardPage() {
           logoUrl: b.logoUrl || '',
           primaryColor: b.primaryColor || '#f59e0b',
           secondaryColor: b.secondaryColor || '#f97316',
+          maxSongsPerWindow: b.maxSongsPerWindow || 2,
+          windowMinutes: b.windowMinutes || 10,
         }
         setBrandingForm(updatedForm)
         applyBusinessTheme(b)
@@ -821,6 +825,61 @@ export default function AdminDashboardPage() {
                         }}
                         className="w-11 h-11 rounded-xl cursor-pointer bg-transparent border-0"
                       />
+                    </div>
+                  </div>
+
+                  {/* Regla Antimonopolio por Mesa */}
+                  <div className="p-4 rounded-2xl bg-dark-100 border border-white/10 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <Clock className="w-4 h-4 text-beer-400" />
+                        <span>Límite de Canciones por Mesa</span>
+                      </p>
+                      <span className="badge-beer text-[11px] font-bold">
+                        {brandingForm.maxSongsPerWindow === 1
+                          ? '1 canción'
+                          : `${brandingForm.maxSongsPerWindow} canciones`}{' '}
+                        c/ {brandingForm.windowMinutes} min
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-gray-400 mb-1">
+                          Canciones por mesa
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="20"
+                          value={brandingForm.maxSongsPerWindow}
+                          onChange={(e) =>
+                            setBrandingForm((prev) => ({
+                              ...prev,
+                              maxSongsPerWindow: Math.max(1, Math.min(20, parseInt(e.target.value, 10) || 1)),
+                            }))
+                          }
+                          className="input-field text-sm py-2"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-gray-400 mb-1">
+                          Cada cuántos minutos
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="180"
+                          value={brandingForm.windowMinutes}
+                          onChange={(e) =>
+                            setBrandingForm((prev) => ({
+                              ...prev,
+                              windowMinutes: Math.max(1, Math.min(180, parseInt(e.target.value, 10) || 1)),
+                            }))
+                          }
+                          className="input-field text-sm py-2"
+                        />
+                      </div>
                     </div>
                   </div>
 

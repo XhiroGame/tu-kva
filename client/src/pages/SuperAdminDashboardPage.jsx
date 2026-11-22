@@ -21,6 +21,7 @@ import {
   Upload,
   Image as ImageIcon,
   Sparkles,
+  Clock,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -54,6 +55,8 @@ export default function SuperAdminDashboardPage() {
     adminEmail: '',
     adminPassword: '',
     initialTablesCount: 5,
+    maxSongsPerWindow: 2,
+    windowMinutes: 10,
   })
 
   // Subir logotipo desde archivo y optimizarlo automáticamente a Base64 ligero
@@ -139,6 +142,8 @@ export default function SuperAdminDashboardPage() {
           adminEmail: '',
           adminPassword: '',
           initialTablesCount: 5,
+          maxSongsPerWindow: 2,
+          windowMinutes: 10,
         })
         await fetchAllBusinesses()
       }
@@ -426,6 +431,75 @@ export default function SuperAdminDashboardPage() {
                     placeholder="Ej: Gastrobar & Música"
                     className="input-field pl-10 text-sm"
                   />
+                </div>
+              </div>
+
+              {/* Control Antimonopolio Configurable por Negocio (Canciones por Mesa y Tiempo) */}
+              <div className="sm:col-span-2 lg:col-span-3 p-4 rounded-2xl bg-dark-100/80 border border-white/10">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                  <div>
+                    <p className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-beer-400" />
+                      <span>Regla Antimonopolio por Mesa (Ideal según cantidad de QRs)</span>
+                    </p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      Define cuántas canciones puede pedir cada mesa y cada cuántos minutos (ej: 1 canción cada 15 min para locales grandes).
+                    </p>
+                  </div>
+                  <span className="badge-beer text-xs font-bold self-start sm:self-center">
+                    {newBizForm.maxSongsPerWindow === 1
+                      ? '1 canción'
+                      : `${newBizForm.maxSongsPerWindow} canciones`}{' '}
+                    cada {newBizForm.windowMinutes} min
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                      Canciones permitidas por mesa
+                    </label>
+                    <div className="relative">
+                      <Music className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                      <input
+                        type="number"
+                        min="1"
+                        max="20"
+                        value={newBizForm.maxSongsPerWindow}
+                        onChange={(e) =>
+                          setNewBizForm((prev) => ({
+                            ...prev,
+                            maxSongsPerWindow: Math.max(1, Math.min(20, parseInt(e.target.value, 10) || 1)),
+                          }))
+                        }
+                        className="input-field pl-10 text-sm"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                      Tiempo de espera (en minutos)
+                    </label>
+                    <div className="relative">
+                      <Clock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                      <input
+                        type="number"
+                        min="1"
+                        max="180"
+                        value={newBizForm.windowMinutes}
+                        onChange={(e) =>
+                          setNewBizForm((prev) => ({
+                            ...prev,
+                            windowMinutes: Math.max(1, Math.min(180, parseInt(e.target.value, 10) || 1)),
+                          }))
+                        }
+                        className="input-field pl-10 text-sm"
+                        required
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -729,12 +803,23 @@ export default function SuperAdminDashboardPage() {
                       </div>
                     </div>
 
-                    <p className="text-xs text-gray-400">
-                      <strong className="text-gray-300">Admin del cliente:</strong>{' '}
-                      {biz.admins?.length > 0
-                        ? biz.admins.map((a) => a.email).join(', ')
-                        : 'Sin cuenta cliente asignada'}
-                    </p>
+                    <div className="space-y-1 text-xs text-gray-400">
+                      <p>
+                        <strong className="text-gray-300">Regla por mesa:</strong>{' '}
+                        <span className="text-beer-400 font-semibold">
+                          {(biz.branding?.maxSongsPerWindow || 2) === 1
+                            ? '1 canción'
+                            : `${biz.branding?.maxSongsPerWindow || 2} canciones`}{' '}
+                          cada {biz.branding?.windowMinutes || 10} min
+                        </span>
+                      </p>
+                      <p>
+                        <strong className="text-gray-300">Admin del cliente:</strong>{' '}
+                        {biz.admins?.length > 0
+                          ? biz.admins.map((a) => a.email).join(', ')
+                          : 'Sin cuenta cliente asignada'}
+                      </p>
+                    </div>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-white/10">

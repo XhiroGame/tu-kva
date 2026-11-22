@@ -202,44 +202,49 @@ export async function addToQueue(req, res) {
       })
     }
 
-    // 5. Regla Antimonopolio: Límite estricto de 2 canciones por dispositivo o mesa cada 10 minutos
+    // 5. Regla Antimonopolio configurable por negocio (ej: 1 canción c/ 15 min, o 2 canciones c/ 10 min)
+    const bizConfig = await getBusinessBranding(business.id)
+    const maxSongsPerWindow = Math.max(1, parseInt(bizConfig?.maxSongsPerWindow, 10) || 2)
+    const windowMinutes = Math.max(1, parseInt(bizConfig?.windowMinutes, 10) || 10)
+    const windowMs = windowMinutes * 60 * 1000
+    const songsLabel = maxSongsPerWindow === 1 ? '1 canción' : `${maxSongsPerWindow} canciones`
+
     const isClientOrder = !isAdminOrDj
     const clientIp = req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown-ip'
-    const deviceKey = deviceId ? `dev:${deviceId}` : `ip:${clientIp}`
-    const tenMinutesMs = 10 * 60 * 1000
+    const deviceKey = `${business.id}:${deviceId ? `dev:${deviceId}` : `ip:${clientIp}`}`
     const now = Date.now()
 
     if (isClientOrder) {
-      // 5.a Por Código QR / Mesa en Base de Datos (máx 2 canciones en 10 min por mesa)
+      // 5.a Por Código QR / Mesa en Base de Datos
       if (tableId) {
-        const tenMinutesAgo = new Date(now - tenMinutesMs).toISOString()
+        const windowAgoIso = new Date(now - windowMs).toISOString()
         const { data: recentRequests } = await supabaseAdmin
           .from('playlist_queue')
           .select('id, requested_at')
           .eq('business_id', business.id)
           .eq('table_id', tableId)
-          .gte('requested_at', tenMinutesAgo)
+          .gte('requested_at', windowAgoIso)
           .order('requested_at', { ascending: true })
 
-        if (recentRequests && recentRequests.length >= 2) {
+        if (recentRequests && recentRequests.length >= maxSongsPerWindow) {
           const oldestTime = new Date(recentRequests[0].requested_at).getTime()
-          const minutesRemaining = Math.max(1, Math.ceil((oldestTime + tenMinutesMs - now) / 60000))
+          const minutesRemaining = Math.max(1, Math.ceil((oldestTime + windowMs - now) / 60000))
           return res.status(429).json({
             success: false,
-            message: `Límite alcanzado: Máximo 2 canciones cada 10 minutos por mesa. Podrán pedir otra en aprox. ${minutesRemaining} min.`,
+            message: `Límite alcanzado: Máximo ${songsLabel} cada ${windowMinutes} minutos por mesa. Podrán pedir otra en aprox. ${minutesRemaining} min.`,
             minutesRemaining,
           })
         }
       }
 
-      // 5.b Por Dispositivo Móvil en Memoria (máx 2 canciones en 10 min por teléfono/dispositivo)
-      const currentTimestamps = (deviceRequestsMap.get(deviceKey) || []).filter((t) => t > now - tenMinutesMs)
-      if (currentTimestamps.length >= 2) {
+      // 5.b Por Dispositivo Móvil en Memoria
+      const currentTimestamps = (deviceRequestsMap.get(deviceKey) || []).filter((t) => t > now - windowMs)
+      if (currentTimestamps.length >= maxSongsPerWindow) {
         const oldestTime = currentTimestamps[0]
-        const minutesRemaining = Math.max(1, Math.ceil((oldestTime + tenMinutesMs - now) / 60000))
+        const minutesRemaining = Math.max(1, Math.ceil((oldestTime + windowMs - now) / 60000))
         return res.status(429).json({
           success: false,
-          message: `Has alcanzado el límite de 2 canciones cada 10 minutos desde este dispositivo. Podrás pedir otra en aprox. ${minutesRemaining} min.`,
+          message: `Has alcanzado el límite de ${songsLabel} cada ${windowMinutes} minutos desde este dispositivo. Podrás pedir otra en aprox. ${minutesRemaining} min.`,
           minutesRemaining,
         })
       }
@@ -300,7 +305,7 @@ export async function addToQueue(req, res) {
 
     // 9. Registrar pedido en el historial en memoria del dispositivo
     if (isClientOrder) {
-      const valid = (deviceRequestsMap.get(deviceKey) || []).filter((t) => t > now - tenMinutesMs)
+      const valid = (deviceRequestsMap.get(deviceKey) || []).filter((t) => t > now - windowMs)
       valid.push(now)
       deviceRequestsMap.set(deviceKey, valid)
     }

@@ -302,14 +302,23 @@ router.post('/super/businesses', async (req, res) => {
       }
     }
 
-    // 6. Guardar branding inicial personalizado si se proporcionó
-    const { subtitle, logoUrl, primaryColor, secondaryColor } = req.body || {}
+    // 6. Guardar branding inicial y límites antimonopolio personalizados si se proporcionaron
+    const {
+      subtitle,
+      logoUrl,
+      primaryColor,
+      secondaryColor,
+      maxSongsPerWindow,
+      windowMinutes,
+    } = req.body || {}
     const branding = await saveBusinessBranding(newBusiness.id, {
       name: newBusiness.name,
       subtitle: subtitle || 'Cervecería & Música',
       logoUrl: logoUrl || '',
       primaryColor: primaryColor || '#f59e0b',
       secondaryColor: secondaryColor || '#f97316',
+      maxSongsPerWindow: maxSongsPerWindow ?? 2,
+      windowMinutes: windowMinutes ?? 10,
     })
 
     // 7. Crear mesas iniciales con sus tokens QR listos para imprimir
@@ -424,13 +433,15 @@ router.put('/:businessSlug/branding', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Establecimiento no encontrado' })
     }
 
-    const { name, subtitle, logoUrl, primaryColor, secondaryColor } = req.body || {}
+    const { name, subtitle, logoUrl, primaryColor, secondaryColor, maxSongsPerWindow, windowMinutes } = req.body || {}
     const updatedBranding = await saveBusinessBranding(business.id, {
       name: name || business.name,
       subtitle,
       logoUrl,
       primaryColor,
       secondaryColor,
+      maxSongsPerWindow,
+      windowMinutes,
     })
 
     const updatedName = name && name.trim() ? name.trim() : business.name

@@ -7,13 +7,15 @@ const DEFAULT_BRANDING = {
   logoUrl: '',
   primaryColor: '#f59e0b',
   secondaryColor: '#f97316',
+  maxSongsPerWindow: 2,
+  windowMinutes: 10,
 }
 
 // Caché en memoria para respuestas instantáneas
 const brandingCache = new Map()
 
 /**
- * Obtiene la configuración visual (logo, subtítulo, colores) de un negocio por su ID
+ * Obtiene la configuración visual (logo, subtítulo, colores) y límites antimonopolio de un negocio por su ID
  */
 export async function getBusinessBranding(businessId) {
   if (!businessId) return { ...DEFAULT_BRANDING }
@@ -47,6 +49,14 @@ export async function getBusinessBranding(businessId) {
       logoUrl: row.thumbnail_url || '',
       primaryColor: parsedColors.primaryColor || DEFAULT_BRANDING.primaryColor,
       secondaryColor: parsedColors.secondaryColor || DEFAULT_BRANDING.secondaryColor,
+      maxSongsPerWindow:
+        Number.isFinite(Number(parsedColors.maxSongsPerWindow)) && Number(parsedColors.maxSongsPerWindow) >= 1
+          ? Math.min(Math.max(parseInt(parsedColors.maxSongsPerWindow, 10), 1), 20)
+          : DEFAULT_BRANDING.maxSongsPerWindow,
+      windowMinutes:
+        Number.isFinite(Number(parsedColors.windowMinutes)) && Number(parsedColors.windowMinutes) >= 1
+          ? Math.min(Math.max(parseInt(parsedColors.windowMinutes, 10), 1), 180)
+          : DEFAULT_BRANDING.windowMinutes,
     }
 
     brandingCache.set(String(businessId), { data: branding, loadedAt: Date.now() })
@@ -58,10 +68,15 @@ export async function getBusinessBranding(businessId) {
 }
 
 /**
- * Guarda la personalización visual (nombre, subtítulo, logo y colores) de un negocio en Supabase
+ * Guarda la personalización visual (nombre, subtítulo, logo, colores y límite de canciones) de un negocio en Supabase
  */
-export async function saveBusinessBranding(businessId, { name, subtitle, logoUrl, primaryColor, secondaryColor }) {
+export async function saveBusinessBranding(
+  businessId,
+  { name, subtitle, logoUrl, primaryColor, secondaryColor, maxSongsPerWindow, windowMinutes }
+) {
   if (!businessId) throw new Error('businessId requerido')
+
+  const existing = await getBusinessBranding(businessId)
 
   // 1. Si se envió un nuevo nombre comercial para el negocio, actualizar la tabla businesses
   if (name && typeof name === 'string' && name.trim()) {
@@ -71,11 +86,27 @@ export async function saveBusinessBranding(businessId, { name, subtitle, logoUrl
       .eq('id', businessId)
   }
 
+  const parsedMaxSongs =
+    maxSongsPerWindow !== undefined && maxSongsPerWindow !== null && maxSongsPerWindow !== ''
+      ? Math.min(Math.max(parseInt(maxSongsPerWindow, 10) || DEFAULT_BRANDING.maxSongsPerWindow, 1), 20)
+      : existing.maxSongsPerWindow || DEFAULT_BRANDING.maxSongsPerWindow
+
+  const parsedWindowMinutes =
+    windowMinutes !== undefined && windowMinutes !== null && windowMinutes !== ''
+      ? Math.min(Math.max(parseInt(windowMinutes, 10) || DEFAULT_BRANDING.windowMinutes, 1), 180)
+      : existing.windowMinutes || DEFAULT_BRANDING.windowMinutes
+
   const cleanBranding = {
-    subtitle: typeof subtitle === 'string' ? subtitle.trim() : DEFAULT_BRANDING.subtitle,
-    logoUrl: typeof logoUrl === 'string' ? logoUrl.trim() : '',
-    primaryColor: /^#[0-9a-fA-F]{6}$/.test(primaryColor || '') ? primaryColor : DEFAULT_BRANDING.primaryColor,
-    secondaryColor: /^#[0-9a-fA-F]{6}$/.test(secondaryColor || '') ? secondaryColor : DEFAULT_BRANDING.secondaryColor,
+    subtitle: typeof subtitle === 'string' ? subtitle.trim() : existing.subtitle || DEFAULT_BRANDING.subtitle,
+    logoUrl: typeof logoUrl === 'string' ? logoUrl.trim() : existing.logoUrl || '',
+    primaryColor: /^#[0-9a-fA-F]{6}$/.test(primaryColor || '')
+      ? primaryColor
+      : existing.primaryColor || DEFAULT_BRANDING.primaryColor,
+    secondaryColor: /^#[0-9a-fA-F]{6}$/.test(secondaryColor || '')
+      ? secondaryColor
+      : existing.secondaryColor || DEFAULT_BRANDING.secondaryColor,
+    maxSongsPerWindow: parsedMaxSongs,
+    windowMinutes: parsedWindowMinutes,
   }
 
   // 2. Persistir en la tabla songs bajo el proveedor reservado 'cj_branding' (no requiere migración SQL manual)
@@ -92,6 +123,8 @@ export async function saveBusinessBranding(businessId, { name, subtitle, logoUrl
         stream_url: JSON.stringify({
           primaryColor: cleanBranding.primaryColor,
           secondaryColor: cleanBranding.secondaryColor,
+          maxSongsPerWindow: cleanBranding.maxSongsPerWindow,
+          windowMinutes: cleanBranding.windowMinutes,
         }),
       },
       { onConflict: 'provider,provider_song_id' }
