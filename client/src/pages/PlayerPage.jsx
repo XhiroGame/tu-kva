@@ -11,6 +11,7 @@ import Logo from '@/components/ui/Logo'
 import { formatDuration } from '@/components/queue/SongCard'
 import { getQueue, updateQueueItem, removeFromQueue, reorderQueue, sendPlayerHeartbeat, getSmartFallback, searchSongs, addToQueue, reportBlockedSong } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
+import { applyBusinessTheme } from '@/lib/theme'
 
 export default function PlayerPage() {
   const { businessSlug = 'tu-kva' } = useParams()
@@ -18,6 +19,10 @@ export default function PlayerPage() {
   const [currentTrack, setCurrentTrack] = useState(null)
   const [queue, setQueue] = useState([])
   const [businessName, setBusinessName] = useState('Tu K-VA')
+  const [businessBranding, setBusinessBranding] = useState({
+    subtitle: 'Cervecería & Música',
+    logoUrl: '',
+  })
   const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
   const [playerReady, setPlayerReady] = useState(false)
@@ -300,6 +305,10 @@ export default function PlayerPage() {
       const res = await getQueue(businessSlug, { role: 'player' })
       if (res?.success) {
         if (res.business?.name) setBusinessName(res.business.name)
+        if (res.business?.branding) {
+          setBusinessBranding((prev) => ({ ...prev, ...res.business.branding }))
+          applyBusinessTheme(res.business.branding)
+        }
         const pendingList = res.queue || []
         setQueue(pendingList)
 
@@ -741,9 +750,14 @@ export default function PlayerPage() {
       {/* Barra Superior */}
       <header className="flex items-center justify-between border-b border-white/10 pb-4">
         <div className="flex items-center gap-4">
-          <Logo size="md" />
+          <Logo
+            size="md"
+            businessName={businessName}
+            subtitle={businessBranding.subtitle}
+            logoUrl={businessBranding.logoUrl}
+          />
           <div className="hidden sm:block pl-4 border-l border-white/10">
-            <h1 className="text-lg font-bold text-white font-display">Tu K-VA</h1>
+            <h1 className="text-lg font-bold text-white font-display">{businessName}</h1>
             <p className="text-xs text-beer-400 font-semibold flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
               Reproductor Central del Bar Activo
@@ -840,7 +854,7 @@ export default function PlayerPage() {
                       : 'badge-beer'
                   }`}>
                     {currentTrack.isFallback 
-                      ? '🎲 Aleatoria de las Más Sonadas en Tu K-VA' 
+                      ? `🎲 Aleatoria de las Más Sonadas en ${businessName}` 
                       : '🔥 Pedido de Cliente en Vivo'}
                   </span>
                   <h3 className="font-bold text-base sm:text-lg text-white line-clamp-1 leading-snug">
@@ -989,7 +1003,7 @@ export default function PlayerPage() {
             <div className="p-4 border-b border-white/10 flex items-center justify-between">
               <div className="flex items-center gap-2 text-beer-400 font-bold">
                 <Search className="w-5 h-5" />
-                <span className="text-base font-display">Buscador Oficial del Bar (Tu K-VA)</span>
+                <span className="text-base font-display">Buscador Oficial del Bar ({businessName})</span>
               </div>
               <button
                 onClick={() => setIsSearchOpen(false)}
@@ -1077,8 +1091,11 @@ export default function PlayerPage() {
       )}
 
       {/* Footer */}
-      <footer className="text-center text-xs text-gray-500 pt-2 border-t border-white/5">
-        Tu K-VA Cervecería & Música • Computador Central de Sonido
+      <footer className="text-center text-xs text-gray-500 pt-2 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <span>{businessName} • Computador Central de Sonido</span>
+        <span className="text-gray-400">
+          Powered by <strong className="text-beer-400">CJ Systems</strong> — Ing. Ciro José
+        </span>
       </footer>
     </div>
   )

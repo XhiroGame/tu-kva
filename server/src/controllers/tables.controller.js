@@ -2,6 +2,7 @@ import os from 'os'
 import QRCode from 'qrcode'
 import { v4 as uuidv4 } from 'uuid'
 import supabaseAdmin from '../config/supabase.js'
+import { getBusinessBranding } from '../utils/branding.js'
 
 /**
  * Obtiene la dirección IPv4 local de la máquina para que los celulares
@@ -49,24 +50,44 @@ function getBaseClientUrl(req) {
 }
 
 /**
+ * Resuelve un negocio por su slug exacto (con soporte retrocompatible para 'tu-kva')
+ */
+async function resolveBusinessBySlug(businessSlug) {
+  const safeSlug = String(businessSlug || 'tu-kva').replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase() || 'tu-kva'
+
+  const { data: exactBiz } = await supabaseAdmin
+    .from('businesses')
+    .select('id, name, slug')
+    .eq('slug', safeSlug)
+    .maybeSingle()
+
+  if (exactBiz) return exactBiz
+
+  if (safeSlug === 'tu-kva') {
+    const { data: defaultBiz } = await supabaseAdmin
+      .from('businesses')
+      .select('id, name, slug')
+      .eq('id', 'a1b2c3d4-0000-0000-0000-000000000001')
+      .maybeSingle()
+
+    return defaultBiz || { id: 'a1b2c3d4-0000-0000-0000-000000000001', name: 'Tu K-VA', slug: 'tu-kva' }
+  }
+
+  return null
+}
+
+/**
  * GET /api/tables/:businessSlug
  * Obtiene todas las mesas de un establecimiento con su URL y QR generado
  */
 export async function getTables(req, res) {
   try {
     const { businessSlug } = req.params
-    const safeSlug = String(businessSlug || 'tu-kva').replace(/[^a-zA-Z0-9_-]/g, '') || 'tu-kva'
     const baseClientUrl = getBaseClientUrl(req)
 
-    let { data: business } = await supabaseAdmin
-      .from('businesses')
-      .select('id, name, slug')
-      .or(`slug.eq.${safeSlug},slug.eq.tu-kva,id.eq.a1b2c3d4-0000-0000-0000-000000000001`)
-      .limit(1)
-      .single()
-
+    const business = await resolveBusinessBySlug(businessSlug)
     if (!business) {
-      business = { id: 'a1b2c3d4-0000-0000-0000-000000000001', name: 'Tu K-VA', slug: 'tu-kva' }
+      return res.status(404).json({ success: false, message: 'Establecimiento no encontrado' })
     }
 
     const { data: tables, error } = await supabaseAdmin
@@ -113,22 +134,15 @@ export async function getTables(req, res) {
 export async function createTable(req, res) {
   try {
     const { businessSlug, tableName } = req.body
-    const safeSlug = String(businessSlug || 'tu-kva').replace(/[^a-zA-Z0-9_-]/g, '') || 'tu-kva'
     const baseClientUrl = getBaseClientUrl(req)
 
     if (!tableName || !tableName.trim()) {
       return res.status(400).json({ success: false, message: 'El nombre de la mesa es requerido' })
     }
 
-    let { data: business } = await supabaseAdmin
-      .from('businesses')
-      .select('id, slug')
-      .or(`slug.eq.${safeSlug},slug.eq.tu-kva,id.eq.a1b2c3d4-0000-0000-0000-000000000001`)
-      .limit(1)
-      .maybeSingle()
-
+    const business = await resolveBusinessBySlug(businessSlug)
     if (!business) {
-      business = { id: 'a1b2c3d4-0000-0000-0000-000000000001', slug: 'tu-kva' }
+      return res.status(404).json({ success: false, message: 'Establecimiento no encontrado' })
     }
 
     const qrToken = `qr-${uuidv4().slice(0, 8)}`
@@ -194,6 +208,8 @@ export async function validateTable(req, res) {
       return res.status(404).json({ success: false, message: 'Mesa no encontrada o token inválido' })
     }
 
+    const branding = await getBusinessBranding(table.business_id)
+
     return res.json({
       success: true,
       data: {
@@ -202,6 +218,7 @@ export async function validateTable(req, res) {
         active: table.active,
         businessName: table.businesses?.name || 'Tu K-VA',
         businessSlug: table.businesses?.slug || 'tu-kva',
+        branding,
       },
     })
   } catch (error) {

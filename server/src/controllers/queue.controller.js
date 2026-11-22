@@ -1,4 +1,5 @@
 import supabaseAdmin from '../config/supabase.js'
+import { getBusinessBranding } from '../utils/branding.js'
 
 // Memoria para rastrear solicitudes por dispositivo e IP (ventana de 10 minutos)
 const deviceRequestsMap = new Map()
@@ -20,33 +21,54 @@ setInterval(() => {
 }, 15 * 60 * 1000)
 
 /**
+ * Resuelve un negocio por su slug exacto (manteniendo soporte automático para 'tu-kva')
+ */
+async function resolveBusinessBySlug(businessSlug) {
+  const safeSlug = String(businessSlug || 'tu-kva').replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase() || 'tu-kva'
+
+  const { data: exactBiz } = await supabaseAdmin
+    .from('businesses')
+    .select('id, name, slug')
+    .eq('slug', safeSlug)
+    .maybeSingle()
+
+  if (exactBiz) return exactBiz
+
+  if (safeSlug === 'tu-kva') {
+    const { data: defaultBiz } = await supabaseAdmin
+      .from('businesses')
+      .select('id, name, slug')
+      .eq('id', 'a1b2c3d4-0000-0000-0000-000000000001')
+      .maybeSingle()
+
+    if (defaultBiz) return defaultBiz
+
+    const { data: fallbackBiz } = await supabaseAdmin
+      .from('businesses')
+      .upsert(
+        { id: 'a1b2c3d4-0000-0000-0000-000000000001', name: 'Tu K-VA', slug: 'tu-kva' },
+        { onConflict: 'id' }
+      )
+      .select('id, name, slug')
+      .single()
+    return fallbackBiz
+  }
+
+  return null
+}
+
+/**
  * GET /api/queue/:businessSlug
  * Obtiene la lista actual de canciones en cola y la canción en reproducción
  */
 export async function getQueue(req, res) {
   try {
     const { businessSlug } = req.params
-    const safeSlug = String(businessSlug || 'tu-kva').replace(/[^a-zA-Z0-9_-]/g, '') || 'tu-kva'
 
-    // 1. Obtener el business_id por el slug o id por defecto
-    let { data: business } = await supabaseAdmin
-      .from('businesses')
-      .select('id, name, slug')
-      .or(`slug.eq.${safeSlug},slug.eq.tu-kva,id.eq.a1b2c3d4-0000-0000-0000-000000000001`)
-      .limit(1)
-      .single()
-
+    // 1. Obtener el business_id por el slug exacto
+    const business = await resolveBusinessBySlug(businessSlug)
     if (!business) {
-      // Si por alguna razón no lo encuentra, crear/obtener Tu K-VA por defecto
-      const { data: fallbackBiz } = await supabaseAdmin
-        .from('businesses')
-        .upsert(
-          { id: 'a1b2c3d4-0000-0000-0000-000000000001', name: 'Tu K-VA', slug: 'tu-kva' },
-          { onConflict: 'id' }
-        )
-        .select('id, name, slug')
-        .single()
-      business = fallbackBiz
+      return res.status(404).json({ success: false, message: 'Establecimiento no encontrado' })
     }
 
     // 2. Obtener la cola activa (playing y pending) ordenada por posición
@@ -94,9 +116,14 @@ export async function getQueue(req, res) {
     // no mostrar una canción fantasma como "Sonando ahora en el bar"
     const visibleCurrentTrack = isPlayerRequest || isPlayerActive ? currentTrack : null
 
+    const branding = await getBusinessBranding(business.id)
+
     return res.json({
       success: true,
-      business,
+      business: {
+        ...business,
+        branding,
+      },
       playerActive: isPlayerActive,
       currentTrack: visibleCurrentTrack,
       queue: pendingQueue,
@@ -120,17 +147,10 @@ export async function addToQueue(req, res) {
       return res.status(400).json({ success: false, message: 'Datos de canción incompletos' })
     }
 
-    // 1. Validar establecimiento con fallback automático
-    const safeSlug = String(businessSlug || 'tu-kva').replace(/[^a-zA-Z0-9_-]/g, '') || 'tu-kva'
-    let { data: business } = await supabaseAdmin
-      .from('businesses')
-      .select('id')
-      .or(`slug.eq.${safeSlug},slug.eq.tu-kva,id.eq.a1b2c3d4-0000-0000-0000-000000000001`)
-      .limit(1)
-      .single()
-
+    // 1. Validar establecimiento por slug exacto
+    const business = await resolveBusinessBySlug(businessSlug)
     if (!business) {
-      business = { id: 'a1b2c3d4-0000-0000-0000-000000000001' }
+      return res.status(404).json({ success: false, message: 'Establecimiento no encontrado' })
     }
 
     // 2. Validar mesa por qr_token (obligatorio para clientes no autenticados)
@@ -357,16 +377,8 @@ export async function updateQueueStatus(req, res) {
  */
 export async function playerHeartbeat(req, res) {
   try {
-    const safeSlug = String(req.params.businessSlug || 'tu-kva').replace(/[^a-zA-Z0-9_-]/g, '') || 'tu-kva'
     const isPlaying = Boolean(req.body?.isPlaying)
-
-    const { data: business } = await supabaseAdmin
-      .from('businesses')
-      .select('id')
-      .or(`slug.eq.${safeSlug},slug.eq.tu-kva,id.eq.a1b2c3d4-0000-0000-0000-000000000001`)
-      .limit(1)
-      .maybeSingle()
-
+    const business = await resolveBusinessBySlug(req.params.businessSlug)
     const businessId = business?.id || 'a1b2c3d4-0000-0000-0000-000000000001'
     playerHeartbeatMap.set(businessId, {
       lastSeen: Date.now(),

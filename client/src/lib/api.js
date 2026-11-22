@@ -232,4 +232,57 @@ export const getHistory = (businessSlug, options = {}) =>
 export const getAdminStats = (businessSlug) =>
   apiFetch(`/admin/${businessSlug}/stats`)
 
+/**
+ * Get custom branding (name, subtitle, logo, colors) for a business.
+ * @param {string} businessSlug
+ */
+export const getBusinessBranding = (businessSlug) =>
+  apiFetch(`/admin/${businessSlug}/branding`)
+
+/**
+ * Update custom branding (name, subtitle, logo, colors) for a business.
+ * @param {string} businessSlug
+ * @param {object} payload - { name, subtitle, logoUrl, primaryColor, secondaryColor }
+ */
+export const updateBusinessBranding = (businessSlug, payload) =>
+  apiFetch(`/admin/${businessSlug}/branding`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+
+/**
+ * Get authenticated admin profile, assigned business and SuperAdmin status (CJ Systems).
+ */
+export const getAdminProfile = () =>
+  apiFetch('/admin/me')
+
+// ---- SuperAdmin API (CJ Systems — Ing. Ciro José) ----
+
+/**
+ * List all registered businesses with stats, tables count and admin users.
+ */
+export const getSuperAdminBusinesses = () =>
+  apiFetch('/admin/super/businesses')
+
+/**
+ * Create a new client business, its admin user in Supabase Auth and initial QR tables.
+ * @param {object} payload - { name, slug, adminEmail, adminPassword, initialTablesCount }
+ */
+export const createSuperAdminBusiness = (payload) =>
+  apiFetch('/admin/super/businesses', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+
+/**
+ * Activate or pause all tables of a client business (subscription control).
+ * @param {string} businessId
+ * @param {boolean} active
+ */
+export const toggleBusinessStatus = (businessId, active) =>
+  apiFetch(`/admin/super/businesses/${businessId}/toggle-status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ active: Boolean(active) }),
+  })
+
 export default apiFetch

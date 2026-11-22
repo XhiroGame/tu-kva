@@ -13,6 +13,23 @@
     --color-dark: #111111;
     --color-dark-card: #1a1a1a;
     --color-dark-border: #2a2a2a;
+
+    /* Default Theme: Amber / Cerveza (Tu K-VA) */
+    --brand-50: 255 251 235;
+    --brand-100: 254 243 199;
+    --brand-200: 253 230 138;
+    --brand-300: 252 211 77;
+    --brand-400: 251 191 36;
+    --brand-500: 245 158 11;
+    --brand-600: 217 119 6;
+    --brand-700: 180 83 9;
+    --brand-800: 146 64 14;
+    --brand-900: 120 53 15;
+    --brand-950: 69 26 3;
+
+    --brand-accent-400: 251 146 60;
+    --brand-accent-500: 249 115 22;
+    --brand-accent-600: 234 88 12;
   }
 
   * {

@@ -60,16 +60,16 @@ function AdminLoginPage() {
       <div className="w-full max-w-sm relative">
         {/* Logo */}
         <div className="text-center mb-10">
-          <Logo size="lg" showTagline />
+          <Logo size="lg" businessName="CJ SYSTEMS" subtitle="Plataforma Musical para Bares" />
         </div>
 
         {/* Login card */}
         <div className="card p-6 shadow-beer">
           <h2 className="text-xl font-display font-bold text-white mb-1">
-            Panel Administrativo
+            Acceso a Establecimientos
           </h2>
           <p className="text-gray-400 text-sm mb-6">
-            Accede con tus credenciales de administrador
+            Ingresa con la cuenta de administrador de tu negocio
           </p>
 
           <form onSubmit={handleLogin} className="space-y-4">
@@ -136,8 +136,8 @@ function AdminLoginPage() {
           </form>
         </div>
 
-        <p className="text-center text-gray-600 text-xs mt-6">
-          TU K-VA © {new Date().getFullYear()} — Solo personal autorizado
+        <p className="text-center text-gray-500 text-xs mt-6">
+          <strong className="text-beer-400">CJ Systems</strong> © {new Date().getFullYear()} — Ing. Ciro José
         </p>
       </div>
     </div>

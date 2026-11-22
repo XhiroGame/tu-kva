@@ -7,23 +7,24 @@ export default {
   theme: {
     extend: {
       colors: {
-        // BEER MUSIC Brand Colors
+        // BEER MUSIC / CJ SYSTEMS Dynamic Brand Colors (controlled via CSS variables)
         beer: {
-          50:  '#fffbeb',
-          100: '#fef3c7',
-          200: '#fde68a',
-          300: '#fcd34d',
-          400: '#fbbf24',
-          500: '#f59e0b',  // Beer amber - primary
-          600: '#d97706',
-          700: '#b45309',
-          800: '#92400e',
-          900: '#78350f',
+          50:  'rgb(var(--brand-50) / <alpha-value>)',
+          100: 'rgb(var(--brand-100) / <alpha-value>)',
+          200: 'rgb(var(--brand-200) / <alpha-value>)',
+          300: 'rgb(var(--brand-300) / <alpha-value>)',
+          400: 'rgb(var(--brand-400) / <alpha-value>)',
+          500: 'rgb(var(--brand-500) / <alpha-value>)',  // Primary brand color
+          600: 'rgb(var(--brand-600) / <alpha-value>)',
+          700: 'rgb(var(--brand-700) / <alpha-value>)',
+          800: 'rgb(var(--brand-800) / <alpha-value>)',
+          900: 'rgb(var(--brand-900) / <alpha-value>)',
+          950: 'rgb(var(--brand-950) / <alpha-value>)',
         },
         orange: {
-          400: '#fb923c',
-          500: '#f97316',  // Orange accent
-          600: '#ea580c',
+          400: 'rgb(var(--brand-accent-400) / <alpha-value>)',
+          500: 'rgb(var(--brand-accent-500) / <alpha-value>)',  // Accent color
+          600: 'rgb(var(--brand-accent-600) / <alpha-value>)',
         },
         dark: {
           50:    '#1a1a1a',
@@ -62,13 +63,13 @@ export default {
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
-        'beer-gradient': 'linear-gradient(135deg, #f59e0b 0%, #f97316 100%)',
+        'beer-gradient': 'linear-gradient(135deg, rgb(var(--brand-500)) 0%, rgb(var(--brand-accent-500)) 100%)',
         'dark-gradient': 'linear-gradient(180deg, #141414 0%, #0d0d0d 100%)',
       },
       boxShadow: {
-        'beer': '0 0 20px rgba(245, 158, 11, 0.3)',
-        'beer-lg': '0 0 40px rgba(245, 158, 11, 0.4)',
-        'orange': '0 0 20px rgba(249, 115, 22, 0.3)',
+        'beer': '0 0 20px rgb(var(--brand-500) / 0.3)',
+        'beer-lg': '0 0 40px rgb(var(--brand-500) / 0.4)',
+        'orange': '0 0 20px rgb(var(--brand-accent-500) / 0.3)',
       },
     },
   },

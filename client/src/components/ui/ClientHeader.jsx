@@ -5,12 +5,17 @@ import { Utensils } from 'lucide-react'
 /**
  * ClientHeader - Encabezado optimizado y responsivo para pantallas móviles
  */
-export default function ClientHeader({ businessName = 'Tu K-VA', tableName = 'Cargando mesa...' }) {
+export default function ClientHeader({
+  businessName = 'Tu K-VA',
+  subtitle = 'Cervecería & Música',
+  logoUrl = '',
+  tableName = 'Cargando mesa...',
+}) {
   return (
     <header className="pt-1 pb-3 border-b border-dark-border/40">
       <div className="flex items-center justify-between gap-3">
-        {/* Logo */}
-        <Logo size="sm" />
+        {/* Logo dinámico del negocio */}
+        <Logo size="sm" businessName={businessName} subtitle={subtitle} logoUrl={logoUrl} />
 
         {/* Badge de la Mesa destacado */}
         <div className="flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-beer-950/80 to-dark-50 border border-beer-500/40 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-2xl shadow-sm shadow-beer/10">

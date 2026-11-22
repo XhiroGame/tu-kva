@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AppProvider } from '@/context/AppContext'
 
 // Pages
+import LandingPage from '@/pages/LandingPage'
 import ClientPage from '@/pages/ClientPage'
 import PlayerPage from '@/pages/PlayerPage'
 import AdminLoginPage from '@/pages/AdminLoginPage'
@@ -11,18 +12,23 @@ import NotFoundPage from '@/pages/NotFoundPage'
 // Guards
 import ProtectedRoute from '@/components/ui/ProtectedRoute'
 import ErrorBoundary from '@/components/ui/ErrorBoundary'
+import { useApp } from '@/context/AppContext'
+
+function PlayerDefaultRedirect() {
+  const { business } = useApp()
+  const targetSlug = business?.slug || 'tu-kva'
+  return <Navigate to={`/player/${targetSlug}`} replace />
+}
 
 /**
- * BEER MUSIC - Main App Router
+ * CJ SYSTEMS - Main App Router (Multi-Tenant SaaS)
  *
  * Routes:
- *   /                              → Redirect to default business or landing
+ *   /                              → Landing Page Comercial (CJ Systems - Ing. Ciro José)
  *   /:businessSlug/table/:qrToken  → Client interface (mobile, via QR)
  *   /player/:businessSlug          → Central music player (connected to sound system)
  *   /admin/login                   → Admin authentication
- *   /admin/dashboard               → Protected admin panel
- *   /admin/tables                  → Table & QR management
- *   /admin/history                 → Play history
+ *   /admin/dashboard               → Protected admin & CJ Systems SuperAdmin panel
  */
 function App() {
   return (
@@ -30,6 +36,9 @@ function App() {
       <BrowserRouter>
         <AppProvider>
         <Routes>
+          {/* Landing Page Comercial de CJ Systems */}
+          <Route path="/" element={<LandingPage />} />
+
           {/* Client interface - accessed via QR code */}
           <Route
             path="/:businessSlug/table/:qrToken"
@@ -39,7 +48,11 @@ function App() {
           {/* Central music player - solo accesible si se ha iniciado sesión en el Dashboard */}
           <Route
             path="/player"
-            element={<Navigate to="/player/tu-kva" replace />}
+            element={
+              <ProtectedRoute>
+                <PlayerDefaultRedirect />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/player/:businessSlug"
@@ -61,12 +74,6 @@ function App() {
                 <AdminDashboardPage />
               </ProtectedRoute>
             }
-          />
-
-          {/* Default redirect */}
-          <Route
-            path="/"
-            element={<Navigate to="/admin/login" replace />}
           />
 
           {/* 404 */}

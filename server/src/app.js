@@ -49,7 +49,7 @@ app.use(cors({
 }))
 
 // ---- Body Parsing ----
-app.use(express.json({ limit: '10kb' })) // Limit body size
+app.use(express.json({ limit: '500kb' })) // Soporta subida de logo personalizado en Base64/SVG
 app.use(express.urlencoded({ extended: false }))
 
 // ---- Logging ----

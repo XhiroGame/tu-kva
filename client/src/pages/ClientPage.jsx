@@ -13,6 +13,7 @@ import QueueList from '@/components/queue/QueueList'
 // APIs y Supabase Realtime
 import { searchSongs, addToQueue, getQueue, validateTable } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
+import { applyBusinessTheme } from '@/lib/theme'
 
 // Helpers para control antimonopolio (2 canciones cada 10 min por dispositivo)
 function getDeviceId() {
@@ -73,6 +74,12 @@ export default function ClientPage() {
   const [tableName, setTableName] = useState('Cargando mesa...')
   const [tableStatus, setTableStatus] = useState('loading') // 'loading' | 'valid' | 'invalid'
   const [businessName, setBusinessName] = useState('Tu K-VA')
+  const [businessBranding, setBusinessBranding] = useState({
+    subtitle: 'Cervecería & Música',
+    logoUrl: '',
+    primaryColor: '#f59e0b',
+    secondaryColor: '#f97316',
+  })
 
   // Playlist en tiempo real
   const [currentTrack, setCurrentTrack] = useState(null)
@@ -106,6 +113,10 @@ export default function ClientPage() {
           if (tableRes.data.businessName) {
             setBusinessName(tableRes.data.businessName)
           }
+          if (tableRes.data.branding) {
+            setBusinessBranding((prev) => ({ ...prev, ...tableRes.data.branding }))
+            applyBusinessTheme(tableRes.data.branding)
+          }
           setTableStatus('valid')
         } else {
           setTableStatus('invalid')
@@ -127,6 +138,10 @@ export default function ClientPage() {
       const response = await getQueue(businessSlug)
       if (response?.success) {
         if (response.business?.name) setBusinessName(response.business.name)
+        if (response.business?.branding) {
+          setBusinessBranding((prev) => ({ ...prev, ...response.business.branding }))
+          applyBusinessTheme(response.business.branding)
+        }
 
         // Canción sonando actualmente
         if (response.currentTrack) {
@@ -373,8 +388,13 @@ export default function ClientPage() {
   return (
     <div className="min-h-screen bg-dark-200 text-white flex flex-col justify-between selection:bg-beer-500 selection:text-black w-full overflow-x-hidden">
       <div className="w-full max-w-lg mx-auto px-3.5 py-2.5 pb-24 sm:py-5 sm:px-4">
-        {/* Cabecera compacta de la mesa */}
-        <ClientHeader businessName={businessName} tableName={tableName} />
+        {/* Cabecera compacta de la mesa con marca personalizada del negocio */}
+        <ClientHeader
+          businessName={businessName}
+          subtitle={businessBranding.subtitle}
+          logoUrl={businessBranding.logoUrl}
+          tableName={tableName}
+        />
 
         {/* Indicador visual de cuota antimonopolio (2 canciones cada 10 min) */}
         <div className="mt-2.5 px-3 py-1.5 rounded-2xl bg-dark-50/80 border border-beer-500/20 flex items-center justify-between text-xs">
@@ -546,6 +566,38 @@ export default function ClientPage() {
             <QueueList queue={queue} currentTableId={tableId} />
           </div>
         )}
+
+        {/* Firma CJ Systems — Ing. Ciro José (Generador orgánico de prospectos B2B en cada mesa) */}
+        <footer className="mt-10 pt-5 border-t border-white/10 text-center space-y-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] text-gray-300">
+            <span className="w-1.5 h-1.5 rounded-full bg-beer-500 animate-pulse" />
+            <span>
+              Tecnología por <strong className="text-beer-400 font-bold">CJ Systems</strong> • Ing. Ciro José
+            </span>
+          </div>
+          <p className="text-[11px] text-gray-500">
+            ¿Tienes un bar, restaurante o negocio?{' '}
+            <a
+              href="/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-beer-400 hover:text-beer-300 underline font-semibold transition-colors"
+            >
+              Conoce CJ Systems
+            </a>
+            {' • '}
+            <a
+              href={`https://wa.me/573118715006?text=${encodeURIComponent(
+                `¡Hola Ing. Ciro José! Estoy usando el sistema musical QR en ${businessName} y me gustaría implementarlo en mi negocio.`
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-green-400 hover:text-green-300 underline font-semibold transition-colors"
+            >
+              WhatsApp: 311 871 5006
+            </a>
+          </p>
+        </footer>
       </div>
 
       {/* Barra flotante para ver la playlist si agregó canciones */}

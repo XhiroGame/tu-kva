@@ -152,6 +152,7 @@ export async function searchSongs(req, res) {
         .from('songs')
         .select('*')
         .eq('provider', 'youtube')
+        .neq('provider', 'cj_branding')
         .lt('duration', 600)
         .gt('duration', 30)
         .order('created_at', { ascending: false })
@@ -179,6 +180,7 @@ export async function searchSongs(req, res) {
         const { data: matchedRows } = await supabaseAdmin
           .from('songs')
           .select('*')
+          .neq('provider', 'cj_branding')
           .or(`title.ilike.%${safeQuery}%,artist.ilike.%${safeQuery}%`)
           .lt('duration', 600)
           .gt('duration', 30)
@@ -267,14 +269,22 @@ export async function getSmartFallbackSongs(req, res) {
         .filter(Boolean)
     )
 
-    // 1. Obtener el business_id con soporte para slug por defecto
-    const safeSlug = String(businessSlug || 'tu-kva').replace(/[^a-zA-Z0-9_-]/g, '') || 'tu-kva'
+    // 1. Obtener el business_id por su slug exacto (con soporte retrocompatible para tu-kva)
+    const safeSlug = String(businessSlug || 'tu-kva').replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase() || 'tu-kva'
     let { data: business } = await supabaseAdmin
       .from('businesses')
       .select('id, name, slug')
-      .or(`slug.eq.${safeSlug},slug.eq.tu-kva,id.eq.a1b2c3d4-0000-0000-0000-000000000001`)
-      .limit(1)
-      .single()
+      .eq('slug', safeSlug)
+      .maybeSingle()
+
+    if (!business && safeSlug === 'tu-kva') {
+      const { data: defaultBiz } = await supabaseAdmin
+        .from('businesses')
+        .select('id, name, slug')
+        .eq('id', 'a1b2c3d4-0000-0000-0000-000000000001')
+        .maybeSingle()
+      business = defaultBiz || { id: 'a1b2c3d4-0000-0000-0000-000000000001', name: 'Tu K-VA', slug: 'tu-kva' }
+    }
 
     if (!business) {
       business = { id: 'a1b2c3d4-0000-0000-0000-000000000001', name: 'Tu K-VA', slug: 'tu-kva' }
