@@ -34,7 +34,8 @@ app.use(cors({
 
     const isAllowed =
       envOrigins.includes(origin) ||
-      /^https:\/\/tu-kva(-[a-z0-9-]+)?\.vercel\.app$/i.test(origin) ||
+      /^https:\/\/(tu-kva|cj-systems|cjsystems)(-[a-z0-9-]+)?\.vercel\.app$/i.test(origin) ||
+      /^https:\/\/([a-z0-9-]+\.)?cjsystems\.(com|co|com\.co|app|dev)$/i.test(origin) ||
       /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/i.test(origin)
 
     if (isAllowed) {

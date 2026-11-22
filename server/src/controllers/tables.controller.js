@@ -28,9 +28,16 @@ function getLocalIpAddress() {
  * Determina la URL base que se incrustará en el código QR
  */
 function getBaseClientUrl(req) {
-  // 1. Si en el .env se configuró un dominio o IP explícita distinta a localhost
+  // 1. Priorizar el Origin desde donde el administrador está creando/viendo los QRs
+  // Así, si creas mesas desde cj-systems.vercel.app o tu dominio propio, los QRs salen con esa marca
+  const originHeader = req?.get ? req.get('origin') : null
+  if (originHeader && /^https?:\/\//i.test(originHeader) && !originHeader.includes('localhost')) {
+    return originHeader.replace(/\/$/, '')
+  }
+
+  // 2. Si en el .env se configuró un dominio o IP explícita distinta a localhost
   if (process.env.QR_BASE_URL && !process.env.QR_BASE_URL.includes('localhost')) {
-    return process.env.QR_BASE_URL
+    return process.env.QR_BASE_URL.replace(/\/$/, '')
   }
 
   // 2. Si la petición viene desde una IP de red (ej: http://192.168.1.6:3001)
