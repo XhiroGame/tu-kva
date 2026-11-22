@@ -277,17 +277,19 @@ export default function AdminDashboardPage() {
                 </span>
               </button>
 
-              <button
-                onClick={() => setActiveTab('branding')}
-                className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 ${
-                  activeTab === 'branding'
-                    ? 'bg-beer-500 text-dark-200 shadow-sm shadow-beer/30'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <Palette className="w-4 h-4" />
-                <span>Personalizar Marca</span>
-              </button>
+              {isSuperAdmin && (
+                <button
+                  onClick={() => setActiveTab('branding')}
+                  className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 ${
+                    activeTab === 'branding'
+                      ? 'bg-beer-500 text-dark-200 shadow-sm shadow-beer/30'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <Palette className="w-4 h-4" />
+                  <span>Personalizar Marca</span>
+                </button>
+              )}
 
               {isSuperAdmin && (
                 <Link
@@ -354,15 +356,17 @@ export default function AdminDashboardPage() {
               <span>Mesas ({tables.length})</span>
             </button>
 
-            <button
-              onClick={() => setActiveTab('branding')}
-              className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 ${
-                activeTab === 'branding' ? 'bg-beer-500 text-dark-200' : 'text-gray-400'
-              }`}
-            >
-              <Palette className="w-3.5 h-3.5" />
-              <span>Marca</span>
-            </button>
+            {isSuperAdmin && (
+              <button
+                onClick={() => setActiveTab('branding')}
+                className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 ${
+                  activeTab === 'branding' ? 'bg-beer-500 text-dark-200' : 'text-gray-400'
+                }`}
+              >
+                <Palette className="w-3.5 h-3.5" />
+                <span>Marca</span>
+              </button>
+            )}
 
             {isSuperAdmin && (
               <Link
@@ -646,8 +650,8 @@ export default function AdminDashboardPage() {
             </div>
           )}
 
-          {/* PESTAÑA: PERSONALIZACIÓN DE MARCA (NOMBRE, LOGO Y COLORES DE LA ROCKOLA) */}
-          {activeTab === 'branding' && (
+          {/* PESTAÑA: PERSONALIZACIÓN DE MARCA (EXCLUSIVA SUPERADMIN — CJ SYSTEMS) */}
+          {activeTab === 'branding' && isSuperAdmin && (
             <div className="space-y-6 animate-fade-in">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 {/* Columna Izquierda: Formulario de Identidad Visual */}

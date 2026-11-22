@@ -407,9 +407,18 @@ router.get('/:businessSlug/branding', async (req, res) => {
 /**
  * PUT /api/admin/:businessSlug/branding
  * Actualiza el nombre comercial, subtítulo, logo y paleta de colores de la rockola del negocio
+ * Exclusivo para SuperAdmin (CJ Systems)
  */
 router.put('/:businessSlug/branding', async (req, res) => {
   try {
+    const isSuper = await checkIsSuperAdmin(req.user)
+    if (!isSuper) {
+      return res.status(403).json({
+        success: false,
+        message: 'Solo el administrador de CJ Systems puede modificar la personalización de marca.',
+      })
+    }
+
     const business = await resolveBusiness(req.params.businessSlug)
     if (!business) {
       return res.status(404).json({ success: false, message: 'Establecimiento no encontrado' })
