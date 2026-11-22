@@ -18,6 +18,9 @@ import {
   Palette,
   Users,
   Music,
+  Upload,
+  Image as ImageIcon,
+  Sparkles,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -45,12 +48,51 @@ export default function SuperAdminDashboardPage() {
     name: '',
     slug: '',
     subtitle: 'Cervecería & Música',
+    logoUrl: '',
     primaryColor: '#f59e0b',
     secondaryColor: '#f97316',
     adminEmail: '',
     adminPassword: '',
     initialTablesCount: 5,
   })
+
+  // Subir logotipo desde archivo y optimizarlo automáticamente a Base64 ligero
+  const handleNewBizLogoUpload = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Selecciona una imagen válida (PNG, JPG, WEBP o SVG)')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        const maxDim = 220
+        let width = img.width
+        let height = img.height
+        if (width > height && width > maxDim) {
+          height = Math.round((height * maxDim) / width)
+          width = maxDim
+        } else if (height > maxDim) {
+          width = Math.round((width * maxDim) / height)
+          height = maxDim
+        }
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(img, 0, 0, width, height)
+        const compressedDataUrl = canvas.toDataURL('image/png', 0.9)
+        setNewBizForm((prev) => ({ ...prev, logoUrl: compressedDataUrl }))
+        toast.success('Logotipo cargado en la vista previa')
+      }
+      img.src = event.target?.result
+    }
+    reader.readAsDataURL(file)
+  }
 
   // Asegurar que la Consola Maestra de CJ Systems siempre luzca con el tema corporativo Ámbar/Dorado
   useEffect(() => {
@@ -91,6 +133,7 @@ export default function SuperAdminDashboardPage() {
           name: '',
           slug: '',
           subtitle: 'Cervecería & Música',
+          logoUrl: '',
           primaryColor: '#f59e0b',
           secondaryColor: '#f97316',
           adminEmail: '',
@@ -370,44 +413,233 @@ export default function SuperAdminDashboardPage() {
 
               <div>
                 <label className="block text-xs font-semibold text-gray-300 mb-1.5">
-                  Color de Marca Inicial
+                  Eslogan / Subtítulo
                 </label>
                 <div className="relative">
-                  <Palette className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                  <select
-                    value={newBizForm.primaryColor}
-                    onChange={(e) => {
-                      const found = BRAND_COLOR_PRESETS.find((p) => p.primaryColor === e.target.value)
-                      setNewBizForm((prev) => ({
-                        ...prev,
-                        primaryColor: e.target.value,
-                        secondaryColor: found?.secondaryColor || e.target.value,
-                      }))
-                    }}
+                  <Sparkles className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <input
+                    type="text"
+                    value={newBizForm.subtitle}
+                    onChange={(e) =>
+                      setNewBizForm((prev) => ({ ...prev, subtitle: e.target.value }))
+                    }
+                    placeholder="Ej: Gastrobar & Música"
                     className="input-field pl-10 text-sm"
-                  >
-                    {BRAND_COLOR_PRESETS.map((preset) => (
-                      <option
-                        key={preset.id}
-                        value={preset.primaryColor}
-                        className="bg-dark-100 text-white"
-                      >
-                        {preset.name}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
               </div>
 
-              <div className="sm:col-span-2 lg:col-span-3 flex justify-end pt-1">
-                <button
-                  type="submit"
-                  disabled={isCreatingBusiness}
-                  className="btn-primary py-3.5 px-7 text-sm flex items-center justify-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>{isCreatingBusiness ? 'Creando Negocio...' : 'Crear Negocio Cliente'}</span>
-                </button>
+              {/* Estudio Interactivo de Logotipo y Colores + Vista Previa en Vivo */}
+              <div className="sm:col-span-2 lg:col-span-3 grid grid-cols-1 lg:grid-cols-12 gap-5 pt-3 border-t border-white/10">
+                {/* Controles de Logo y Paleta Interactiva */}
+                <div className="lg:col-span-7 space-y-4">
+                  {/* Logotipo */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-semibold text-gray-300">
+                      Logotipo del Negocio (PNG, JPG, SVG o URL)
+                    </label>
+                    <div className="flex flex-col sm:flex-row gap-2.5">
+                      <div className="relative flex-1">
+                        <ImageIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                        <input
+                          type="text"
+                          value={newBizForm.logoUrl}
+                          onChange={(e) =>
+                            setNewBizForm((prev) => ({ ...prev, logoUrl: e.target.value }))
+                          }
+                          placeholder="Pega URL del logo o sube una imagen →"
+                          className="input-field pl-10 text-xs"
+                        />
+                      </div>
+
+                      <label className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-xs font-bold text-white cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap transition-all">
+                        <Upload className="w-4 h-4 text-beer-400" />
+                        <span>Subir Logo</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleNewBizLogoUpload}
+                          className="hidden"
+                        />
+                      </label>
+
+                      {newBizForm.logoUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setNewBizForm((prev) => ({ ...prev, logoUrl: '' }))}
+                          className="px-3 py-2.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 text-red-400 text-xs font-semibold"
+                        >
+                          Quitar
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Paletas Interactivas Visuales */}
+                  <div className="space-y-2">
+                    <label className="block text-xs font-semibold text-gray-300 flex items-center gap-1.5">
+                      <Palette className="w-3.5 h-3.5 text-beer-400" />
+                      <span>Paleta de Colores de la Rockola (elige un estilo o personaliza)</span>
+                    </label>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {BRAND_COLOR_PRESETS.map((preset) => {
+                        const isSelected =
+                          newBizForm.primaryColor.toLowerCase() === preset.primaryColor.toLowerCase()
+                        return (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() =>
+                              setNewBizForm((prev) => ({
+                                ...prev,
+                                primaryColor: preset.primaryColor,
+                                secondaryColor: preset.secondaryColor,
+                              }))
+                            }
+                            className={`p-2.5 rounded-2xl border text-left transition-all flex items-center gap-2.5 active:scale-95 ${
+                              isSelected
+                                ? 'border-white bg-white/10 shadow-md ring-1 ring-white/40'
+                                : 'border-white/10 bg-dark-100/80 hover:border-white/25'
+                            }`}
+                          >
+                            <span
+                              className="w-7 h-7 rounded-xl flex-shrink-0 border border-white/20 shadow-sm"
+                              style={{ background: preset.preview }}
+                            />
+                            <span className="text-[11px] font-semibold text-gray-200 leading-tight">
+                              {preset.name}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    {/* Selectores de Color Exacto (Color Pickers) */}
+                    <div className="grid grid-cols-2 gap-2.5 pt-1">
+                      <label className="p-2.5 rounded-2xl bg-dark-100 border border-white/10 hover:border-white/25 flex items-center justify-between cursor-pointer transition-all">
+                        <div>
+                          <p className="text-[11px] font-bold text-white">Color Principal</p>
+                          <p className="text-[10px] text-gray-400 font-mono uppercase">
+                            {newBizForm.primaryColor}
+                          </p>
+                        </div>
+                        <input
+                          type="color"
+                          value={newBizForm.primaryColor}
+                          onChange={(e) =>
+                            setNewBizForm((prev) => ({ ...prev, primaryColor: e.target.value }))
+                          }
+                          className="w-9 h-9 rounded-lg cursor-pointer bg-transparent border-0"
+                        />
+                      </label>
+
+                      <label className="p-2.5 rounded-2xl bg-dark-100 border border-white/10 hover:border-white/25 flex items-center justify-between cursor-pointer transition-all">
+                        <div>
+                          <p className="text-[11px] font-bold text-white">Color Acento</p>
+                          <p className="text-[10px] text-gray-400 font-mono uppercase">
+                            {newBizForm.secondaryColor}
+                          </p>
+                        </div>
+                        <input
+                          type="color"
+                          value={newBizForm.secondaryColor}
+                          onChange={(e) =>
+                            setNewBizForm((prev) => ({ ...prev, secondaryColor: e.target.value }))
+                          }
+                          className="w-9 h-9 rounded-lg cursor-pointer bg-transparent border-0"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Vista Previa en Vivo de la Rockola del Nuevo Cliente */}
+                <div className="lg:col-span-5 flex flex-col justify-between">
+                  <div
+                    className="p-4 rounded-3xl bg-dark-200 border-2 space-y-3.5 transition-all"
+                    style={{
+                      borderColor: `${newBizForm.primaryColor}66`,
+                      boxShadow: `0 0 28px ${newBizForm.primaryColor}22`,
+                    }}
+                  >
+                    <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className="w-10 h-10 rounded-xl flex items-center justify-center font-display font-black text-sm text-dark-200 flex-shrink-0 overflow-hidden border border-white/15"
+                          style={{
+                            background: newBizForm.logoUrl
+                              ? '#111111'
+                              : `linear-gradient(135deg, ${newBizForm.primaryColor}, ${newBizForm.secondaryColor})`,
+                          }}
+                        >
+                          {newBizForm.logoUrl ? (
+                            <img
+                              src={newBizForm.logoUrl}
+                              alt="Preview Logo"
+                              className="w-full h-full object-contain p-0.5"
+                            />
+                          ) : (
+                            (newBizForm.name || 'NB').slice(0, 2).toUpperCase()
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p
+                            className="font-display font-black text-sm uppercase tracking-wider truncate bg-clip-text text-transparent"
+                            style={{
+                              backgroundImage: `linear-gradient(135deg, ${newBizForm.primaryColor}, ${newBizForm.secondaryColor})`,
+                            }}
+                          >
+                            {newBizForm.name || 'NUEVO BAR'}
+                          </p>
+                          <p className="text-[10px] text-gray-300 uppercase tracking-widest truncate">
+                            {newBizForm.subtitle || 'Cervecería & Música'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <span
+                        className="px-2.5 py-1 rounded-xl bg-dark-50 text-[10px] font-bold text-white border flex-shrink-0"
+                        style={{ borderColor: `${newBizForm.primaryColor}66` }}
+                      >
+                        ● Mesa 1
+                      </span>
+                    </div>
+
+                    <div className="p-3 rounded-2xl bg-dark-50 border border-white/10 flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-white truncate">Canción de Muestra</p>
+                        <p className="text-[10px] text-gray-400 truncate">Vista previa en vivo</p>
+                      </div>
+                      <span
+                        className="px-3 py-1.5 rounded-xl text-dark-200 font-black text-[11px] flex-shrink-0"
+                        style={{
+                          background: `linear-gradient(135deg, ${newBizForm.primaryColor}, ${newBizForm.secondaryColor})`,
+                        }}
+                      >
+                        + Pedir
+                      </span>
+                    </div>
+
+                    <p className="text-[10px] text-center text-gray-500">
+                      Vista previa en vivo • Tecnología por{' '}
+                      <strong style={{ color: newBizForm.primaryColor }}>CJ Systems</strong>
+                    </p>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isCreatingBusiness}
+                    className="mt-4 w-full py-3.5 px-6 rounded-2xl text-dark-200 font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-95 hover:brightness-110 shadow-lg"
+                    style={{
+                      background: `linear-gradient(135deg, ${newBizForm.primaryColor}, ${newBizForm.secondaryColor})`,
+                      boxShadow: `0 0 22px ${newBizForm.primaryColor}44`,
+                    }}
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>{isCreatingBusiness ? 'Creando Negocio...' : 'Crear Negocio Cliente'}</span>
+                  </button>
+                </div>
               </div>
             </form>
           </div>
