@@ -42,8 +42,21 @@ async function resolveBusiness(businessSlug) {
  */
 async function checkIsSuperAdmin(user) {
   if (!user) return false
+
+  // 1. Verificar si el correo coincide con la variable de entorno SUPERADMIN_EMAILS (ej: cjperrony@gmail.com)
+  const envSuperEmails = (process.env.SUPERADMIN_EMAILS || process.env.SUPERADMIN_EMAIL || 'cjperrony@gmail.com')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean)
+
+  if (user.email && envSuperEmails.includes(user.email.toLowerCase())) {
+    return true
+  }
+
+  // 2. Verificar metadata de Supabase Auth
   if (user.user_metadata?.role === 'superadmin') return true
 
+  // 3. Verificar en la tabla public.users
   const { data: userRow } = await supabaseAdmin
     .from('users')
     .select('role')
@@ -51,17 +64,6 @@ async function checkIsSuperAdmin(user) {
     .maybeSingle()
 
   if (userRow?.role === 'superadmin') return true
-
-  // Si aún no hay ningún superadmin registrado en la tabla users y es el único/primer admin,
-  // permitir que gestione la plataforma CJ Systems
-  const { count: superCount } = await supabaseAdmin
-    .from('users')
-    .select('id', { count: 'exact', head: true })
-    .eq('role', 'superadmin')
-
-  if ((superCount ?? 0) === 0) {
-    return true
-  }
 
   return false
 }

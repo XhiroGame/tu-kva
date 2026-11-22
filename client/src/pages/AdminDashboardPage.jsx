@@ -4,7 +4,6 @@ import {
   QrCode, Trash2, Plus, Download, ExternalLink, 
   LogOut, RefreshCw, Utensils, MonitorSpeaker,
   BarChart3, History, Trophy, Clock, ShieldCheck,
-  Building2, Power, Mail, Lock, Hash, CheckCircle2, XCircle,
   Palette, Upload, Sparkles
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -19,9 +18,6 @@ import {
   getAdminStats,
   getBusinessBranding,
   updateBusinessBranding,
-  getSuperAdminBusinesses,
-  createSuperAdminBusiness,
-  toggleBusinessStatus,
 } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { BRAND_COLOR_PRESETS, applyBusinessTheme } from '@/lib/theme'
@@ -32,7 +28,7 @@ export default function AdminDashboardPage() {
   const businessName = business?.name || 'Tu K-VA'
   const currentBranding = business?.branding || {}
 
-  const [activeTab, setActiveTab] = useState('stats') // 'stats' | 'tables' | 'branding' | 'superadmin'
+  const [activeTab, setActiveTab] = useState('stats') // 'stats' | 'tables' | 'branding'
 
   // Estados de Mesas
   const [tables, setTables] = useState([])
@@ -54,21 +50,6 @@ export default function AdminDashboardPage() {
   })
   const [isSavingBranding, setIsSavingBranding] = useState(false)
 
-  // Estados de CJ Systems SuperAdmin (Gestión de Negocios Clientes)
-  const [allBusinesses, setAllBusinesses] = useState([])
-  const [isLoadingBusinesses, setIsLoadingBusinesses] = useState(false)
-  const [isCreatingBusiness, setIsCreatingBusiness] = useState(false)
-  const [newBizForm, setNewBizForm] = useState({
-    name: '',
-    slug: '',
-    subtitle: 'Cervecería & Música',
-    primaryColor: '#f59e0b',
-    secondaryColor: '#f97316',
-    adminEmail: '',
-    adminPassword: '',
-    initialTablesCount: 5,
-  })
-
   const fetchStatsAndHistory = async () => {
     setIsLoadingStats(true)
     try {
@@ -82,21 +63,6 @@ export default function AdminDashboardPage() {
       console.warn('Error fetching stats/history:', error)
     } finally {
       setIsLoadingStats(false)
-    }
-  }
-
-  const fetchAllBusinesses = async () => {
-    if (!isSuperAdmin) return
-    setIsLoadingBusinesses(true)
-    try {
-      const res = await getSuperAdminBusinesses()
-      if (res?.success) {
-        setAllBusinesses(res.data || [])
-      }
-    } catch (error) {
-      console.warn('Error fetching SuperAdmin businesses:', error)
-    } finally {
-      setIsLoadingBusinesses(false)
     }
   }
 
@@ -127,10 +93,8 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     if (activeTab === 'stats') {
       fetchStatsAndHistory()
-    } else if (activeTab === 'superadmin' && isSuperAdmin) {
-      fetchAllBusinesses()
     }
-  }, [activeTab, businessSlug, isSuperAdmin])
+  }, [activeTab, businessSlug])
 
   // Cargar lista de mesas y códigos QR
   const fetchTables = async () => {
@@ -211,67 +175,6 @@ export default function AdminDashboardPage() {
     link.click()
     document.body.removeChild(link)
     toast.success(`QR de ${tableName} descargado`)
-  }
-
-  // Crear nuevo negocio cliente desde CJ Systems SuperAdmin
-  const handleCreateClientBusiness = async (e) => {
-    e.preventDefault()
-    if (!newBizForm.name.trim()) {
-      toast.error('Ingresa el nombre del bar o negocio')
-      return
-    }
-
-    setIsCreatingBusiness(true)
-    try {
-      const res = await createSuperAdminBusiness(newBizForm)
-      if (res?.success) {
-        toast.success(res.message || '¡Negocio creado con éxito!')
-        setNewBizForm({
-          name: '',
-          slug: '',
-          adminEmail: '',
-          adminPassword: '',
-          initialTablesCount: 5,
-        })
-        await fetchAllBusinesses()
-      }
-    } catch (error) {
-      toast.error(error.message || 'No se pudo crear el negocio')
-    } finally {
-      setIsCreatingBusiness(false)
-    }
-  }
-
-  // Activar / Pausar suscripción de un negocio cliente
-  const handleToggleBusinessActive = async (biz) => {
-    const nextState = !biz.isActive
-    try {
-      const res = await toggleBusinessStatus(biz.id, nextState)
-      if (res?.success) {
-        toast.success(res.message)
-        fetchAllBusinesses()
-        if (biz.slug === businessSlug) {
-          fetchTables()
-        }
-      }
-    } catch (error) {
-      toast.error(error.message || 'Error al actualizar estado del negocio')
-    }
-  }
-
-  // Cambiar el negocio que estás administrando actualmente (modo SuperAdmin)
-  const handleSwitchActiveBusiness = (biz) => {
-    setBusiness({
-      id: biz.id,
-      name: biz.name,
-      slug: biz.slug,
-      branding: biz.branding,
-    })
-    if (biz.branding) {
-      applyBusinessTheme(biz.branding)
-    }
-    setActiveTab('branding')
-    toast.success(`Administrando ahora: ${biz.name}`)
   }
 
   // Subir archivo de logo desde el computador/celular y redimensionarlo automáticamente a Base64 ligero
@@ -387,17 +290,14 @@ export default function AdminDashboardPage() {
               </button>
 
               {isSuperAdmin && (
-                <button
-                  onClick={() => setActiveTab('superadmin')}
-                  className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 border ${
-                    activeTab === 'superadmin'
-                      ? 'bg-beer-gradient text-dark-200 border-beer-400 shadow-sm shadow-beer/30'
-                      : 'border-beer-500/30 bg-beer-500/10 text-beer-400 hover:bg-beer-500/20'
-                  }`}
+                <Link
+                  to="/superadmin"
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border border-beer-500/30 bg-beer-500/10 text-beer-400 hover:bg-beer-500/20"
+                  title="Volver a la Consola Maestra de CJ Systems"
                 >
                   <ShieldCheck className="w-4 h-4" />
-                  <span>CJ Systems • Clientes</span>
-                </button>
+                  <span>Volver a SuperAdmin</span>
+                </Link>
               )}
             </nav>
           </div>
@@ -465,17 +365,13 @@ export default function AdminDashboardPage() {
             </button>
 
             {isSuperAdmin && (
-              <button
-                onClick={() => setActiveTab('superadmin')}
-                className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1 ${
-                  activeTab === 'superadmin'
-                    ? 'bg-beer-gradient text-dark-200'
-                    : 'text-beer-400 bg-beer-500/10 border border-beer-500/30'
-                }`}
+              <Link
+                to="/superadmin"
+                className="flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1 text-beer-400 bg-beer-500/10 border border-beer-500/30"
               >
                 <ShieldCheck className="w-3.5 h-3.5" />
-                <span>CJ Systems</span>
-              </button>
+                <span>SuperAdmin</span>
+              </Link>
             )}
           </div>
 
@@ -983,324 +879,6 @@ export default function AdminDashboardPage() {
                       Tecnología por <strong className="text-beer-400">CJ Systems</strong> • Ing. Ciro José
                     </div>
                   </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* PESTAÑA 3: PANEL MAESTRO CJ SYSTEMS (SUPERADMIN — ING. CIRO JOSÉ) */}
-          {activeTab === 'superadmin' && isSuperAdmin && (
-            <div className="space-y-6 animate-fade-in">
-              {/* Banner Corporativo CJ Systems */}
-              <div className="card p-6 rounded-3xl bg-gradient-to-r from-beer-950/60 via-dark-50 to-dark-100 border border-beer-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-beer-500/20 border border-beer-500/40 text-beer-400 text-xs font-bold mb-2">
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>Panel Maestro SaaS • CJ Systems</span>
-                  </div>
-                  <h2 className="text-xl font-display font-black text-white">
-                    Gestión de Negocios y Suscripciones — Ing. Ciro José
-                  </h2>
-                  <p className="text-xs text-gray-300 mt-1">
-                    Da de alta nuevos bares en segundos, genera sus credenciales de administrador y controla el estado de su servicio.
-                  </p>
-                </div>
-                <button
-                  onClick={fetchAllBusinesses}
-                  className="self-start sm:self-center px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-gray-200 flex items-center gap-2 border border-white/10"
-                >
-                  <RefreshCw className={`w-4 h-4 ${isLoadingBusinesses ? 'animate-spin' : ''}`} />
-                  <span>Actualizar Lista</span>
-                </button>
-              </div>
-
-              {/* Formulario para Dar de Alta un Nuevo Bar / Cliente */}
-              <div className="card p-6 bg-dark-50/90 rounded-3xl border-white/10">
-                <h3 className="text-base font-bold font-display text-white mb-1 flex items-center gap-2">
-                  <Building2 className="w-5 h-5 text-beer-400" />
-                  <span>Dar de Alta Nuevo Negocio Cliente</span>
-                </h3>
-                <p className="text-xs text-gray-400 mb-5">
-                  Se creará el espacio aislado del bar, sus primeras mesas con códigos QR y la cuenta de acceso para el dueño.
-                </p>
-
-                <form onSubmit={handleCreateClientBusiness} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-300 mb-1.5">
-                      Nombre del Bar / Establecimiento *
-                    </label>
-                    <div className="relative">
-                      <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                      <input
-                        type="text"
-                        value={newBizForm.name}
-                        onChange={(e) => {
-                          const val = e.target.value
-                          const autoSlug = val
-                            .toLowerCase()
-                            .normalize('NFD')
-                            .replace(/[\u0300-\u036f]/g, '')
-                            .replace(/[^a-z0-9]+/g, '-')
-                            .replace(/^-+|-+$/g, '')
-                          setNewBizForm((prev) => ({
-                            ...prev,
-                            name: val,
-                            slug: prev.slug === '' || prev.slug === prev.name
-                              .toLowerCase()
-                              .normalize('NFD')
-                              .replace(/[\u0300-\u036f]/g, '')
-                              .replace(/[^a-z0-9]+/g, '-')
-                              .replace(/^-+|-+$/g, '')
-                              ? autoSlug
-                              : prev.slug,
-                          }))
-                        }}
-                        placeholder="Ej: La Cervecería Real"
-                        className="input-field pl-10 text-sm"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-300 mb-1.5">
-                      Identificador URL (Slug) *
-                    </label>
-                    <div className="relative">
-                      <Hash className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                      <input
-                        type="text"
-                        value={newBizForm.slug}
-                        onChange={(e) =>
-                          setNewBizForm((prev) => ({
-                            ...prev,
-                            slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''),
-                          }))
-                        }
-                        placeholder="ej: cerveceria-real"
-                        className="input-field pl-10 text-sm font-mono"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-300 mb-1.5">
-                      Mesas QR Iniciales
-                    </label>
-                    <div className="relative">
-                      <QrCode className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                      <input
-                        type="number"
-                        min="1"
-                        max="30"
-                        value={newBizForm.initialTablesCount}
-                        onChange={(e) =>
-                          setNewBizForm((prev) => ({
-                            ...prev,
-                            initialTablesCount: parseInt(e.target.value, 10) || 1,
-                          }))
-                        }
-                        className="input-field pl-10 text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-300 mb-1.5">
-                      Correo del Dueño / Admin (Opcional)
-                    </label>
-                    <div className="relative">
-                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                      <input
-                        type="email"
-                        value={newBizForm.adminEmail}
-                        onChange={(e) =>
-                          setNewBizForm((prev) => ({ ...prev, adminEmail: e.target.value }))
-                        }
-                        placeholder="admin@nuevo-bar.com"
-                        className="input-field pl-10 text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-300 mb-1.5">
-                      Contraseña Inicial (mín. 6 caracteres)
-                    </label>
-                    <div className="relative">
-                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                      <input
-                        type="text"
-                        value={newBizForm.adminPassword}
-                        onChange={(e) =>
-                          setNewBizForm((prev) => ({ ...prev, adminPassword: e.target.value }))
-                        }
-                        placeholder="Ej: BarMusical2026*"
-                        className="input-field pl-10 text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-300 mb-1.5">
-                      Color de Marca Inicial
-                    </label>
-                    <select
-                      value={newBizForm.primaryColor}
-                      onChange={(e) => {
-                        const found = BRAND_COLOR_PRESETS.find((p) => p.primaryColor === e.target.value)
-                        setNewBizForm((prev) => ({
-                          ...prev,
-                          primaryColor: e.target.value,
-                          secondaryColor: found?.secondaryColor || e.target.value,
-                        }))
-                      }}
-                      className="input-field text-sm"
-                    >
-                      {BRAND_COLOR_PRESETS.map((preset) => (
-                        <option key={preset.id} value={preset.primaryColor} className="bg-dark-100 text-white">
-                          {preset.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="flex items-end">
-                    <button
-                      type="submit"
-                      disabled={isCreatingBusiness}
-                      className="btn-primary w-full py-3 px-5 text-sm flex items-center justify-center gap-2"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>{isCreatingBusiness ? 'Creando Negocio...' : 'Crear Negocio Cliente'}</span>
-                    </button>
-                  </div>
-                </form>
-              </div>
-
-              {/* Listado de Todos los Negocios en CJ Systems */}
-              <div className="space-y-4">
-                <h3 className="font-bold text-base text-white flex items-center justify-between">
-                  <span>Negocios Registrados ({allBusinesses.length})</span>
-                  <span className="text-xs text-gray-400 font-normal">
-                    Selecciona "Administrar" para ver o imprimir los códigos QR de cualquier cliente
-                  </span>
-                </h3>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {allBusinesses.map((biz) => {
-                    const isCurrent = biz.slug === businessSlug
-                    return (
-                      <div
-                        key={biz.id}
-                        className={`card p-5 rounded-3xl border transition-all flex flex-col justify-between ${
-                          isCurrent
-                            ? 'bg-beer-950/20 border-beer-500/50 shadow-beer'
-                            : 'bg-dark-50/80 border-white/10 hover:border-white/20'
-                        }`}
-                      >
-                        <div>
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-display font-bold text-lg text-white">
-                                  {biz.name}
-                                </h4>
-                                {isCurrent && (
-                                  <span className="badge-beer text-[10px]">Seleccionado</span>
-                                )}
-                              </div>
-                              <p className="text-xs text-gray-400 font-mono mt-0.5">
-                                Slug: /{biz.slug}
-                              </p>
-                            </div>
-
-                            <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${
-                                biz.isActive
-                                  ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                                  : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                              }`}
-                            >
-                              {biz.isActive ? (
-                                <>
-                                  <CheckCircle2 className="w-3.5 h-3.5" /> Activo
-                                </>
-                              ) : (
-                                <>
-                                  <XCircle className="w-3.5 h-3.5" /> Pausado
-                                </>
-                              )}
-                            </span>
-                          </div>
-
-                          {/* Métricas del Negocio */}
-                          <div className="grid grid-cols-3 gap-2 my-4 p-3 rounded-2xl bg-dark-100/80 border border-white/5 text-center">
-                            <div>
-                              <p className="text-[10px] text-gray-400 uppercase">Mesas QR</p>
-                              <p className="text-base font-black text-white">
-                                {biz.activeTables}/{biz.totalTables}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] text-gray-400 uppercase">Reproducidas</p>
-                              <p className="text-base font-black text-beer-400">{biz.totalPlayed}</p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] text-gray-400 uppercase">En Cola</p>
-                              <p className="text-base font-black text-green-400">{biz.pendingInQueue}</p>
-                            </div>
-                          </div>
-
-                          {/* Admins vinculados */}
-                          <div className="text-xs text-gray-400 space-y-1">
-                            <p className="font-semibold text-gray-300">
-                              Usuarios Admin:{' '}
-                              {biz.admins?.length > 0
-                                ? biz.admins.map((a) => a.email).join(', ')
-                                : 'Sin usuario asignado (Administrado por SuperAdmin)'}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Botones de Control de CJ Systems */}
-                        <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-white/10">
-                          <button
-                            type="button"
-                            onClick={() => handleSwitchActiveBusiness(biz)}
-                            className="flex-1 py-2 px-3 rounded-xl bg-beer-500 text-dark-200 font-bold text-xs hover:brightness-110 transition-all text-center"
-                          >
-                            Administrar Mesas y QRs
-                          </button>
-
-                          <Link
-                            to={`/player/${biz.slug}`}
-                            target="_blank"
-                            className="py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-200 font-semibold text-xs border border-white/10 flex items-center gap-1"
-                            title="Abrir Reproductor de este negocio"
-                          >
-                            <MonitorSpeaker className="w-3.5 h-3.5 text-beer-400" />
-                            <span>Player</span>
-                          </Link>
-
-                          <button
-                            type="button"
-                            onClick={() => handleToggleBusinessActive(biz)}
-                            className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center gap-1 border transition-all ${
-                              biz.isActive
-                                ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border-red-500/30'
-                                : 'bg-green-500/10 hover:bg-green-500/20 text-green-400 border-green-500/30'
-                            }`}
-                            title={biz.isActive ? 'Pausar servicio del bar' : 'Reactivar servicio del bar'}
-                          >
-                            <Power className="w-3.5 h-3.5" />
-                            <span>{biz.isActive ? 'Pausar' : 'Activar'}</span>
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  })}
                 </div>
               </div>
             </div>

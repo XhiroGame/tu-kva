@@ -291,8 +291,15 @@ export default function LandingPage() {
             <span>•</span>
             <span>Ing. Ciro José — Ingeniería de Sistemas</span>
           </div>
-          <div>
-            © {new Date().getFullYear()} CJ Systems. Todos los derechos reservados.
+          <div className="flex items-center gap-4">
+            <span>© {new Date().getFullYear()} CJ Systems. Todos los derechos reservados.</span>
+            <Link
+              to="/superadmin/login"
+              className="text-gray-600 hover:text-beer-400 transition-colors"
+              title="Acceso Consola Maestra SuperAdmin"
+            >
+              SuperAdmin
+            </Link>
           </div>
         </div>
       </footer>

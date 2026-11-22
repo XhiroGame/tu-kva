@@ -63,11 +63,13 @@ async function apiFetch(endpoint, options = {}) {
   const data = await response.json()
 
   if (!response.ok) {
-    // Si la sesión expiró en rutas protegidas, cerrar sesión limpiamente para redirigir a /admin/login
+    // Si la sesión expiró en rutas protegidas, cerrar sesión limpiamente para redirigir al login
     if (
       response.status === 401 &&
       typeof window !== 'undefined' &&
-      (window.location.pathname.startsWith('/admin') || window.location.pathname.startsWith('/player'))
+      (window.location.pathname.startsWith('/admin') ||
+        window.location.pathname.startsWith('/player') ||
+        window.location.pathname.startsWith('/superadmin'))
     ) {
       supabase.auth.signOut().catch(() => {})
     }

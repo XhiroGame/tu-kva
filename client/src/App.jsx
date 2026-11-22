@@ -7,10 +7,13 @@ import ClientPage from '@/pages/ClientPage'
 import PlayerPage from '@/pages/PlayerPage'
 import AdminLoginPage from '@/pages/AdminLoginPage'
 import AdminDashboardPage from '@/pages/AdminDashboardPage'
+import SuperAdminLoginPage from '@/pages/SuperAdminLoginPage'
+import SuperAdminDashboardPage from '@/pages/SuperAdminDashboardPage'
 import NotFoundPage from '@/pages/NotFoundPage'
 
 // Guards
 import ProtectedRoute from '@/components/ui/ProtectedRoute'
+import SuperAdminRoute from '@/components/ui/SuperAdminRoute'
 import ErrorBoundary from '@/components/ui/ErrorBoundary'
 import { useApp } from '@/context/AppContext'
 
@@ -63,10 +66,21 @@ function App() {
             }
           />
 
-          {/* Admin authentication */}
+          {/* SuperAdmin portal exclusivo de CJ Systems (Ing. Ciro José) */}
+          <Route path="/superadmin/login" element={<SuperAdminLoginPage />} />
+          <Route
+            path="/superadmin"
+            element={
+              <SuperAdminRoute>
+                <SuperAdminDashboardPage />
+              </SuperAdminRoute>
+            }
+          />
+
+          {/* Admin authentication (Clientes) */}
           <Route path="/admin/login" element={<AdminLoginPage />} />
 
-          {/* Protected admin routes */}
+          {/* Protected admin routes (Panel limpio del establecimiento cliente) */}
           <Route
             path="/admin/*"
             element={
