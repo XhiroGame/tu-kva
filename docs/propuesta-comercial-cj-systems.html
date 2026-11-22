@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Propuesta Comercial · CJ Systems — Sistema Musical Interactivo por QR</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --primary: #111827;
+      --accent: #d97706;
+      --accent-light: #fef3c7;
+      --accent-soft: #fffbeb;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --bg-zebra: #f9fafb;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      color: var(--text);
+      background: #e5e7eb;
+      line-height: 1.55;
+      font-size: 13.5px;
+    }
+
+    /* Barra superior solo visible en pantalla para editar y exportar PDF */
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: #111827;
+      color: #fff;
+      padding: 12px 24px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+    }
+
+    .toolbar-info {
+      font-size: 13px;
+      color: #d1d5db;
+    }
+
+    .toolbar-info strong {
+      color: #fbbf24;
+    }
+
+    .btn-print {
+      background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
+      color: #111827;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-weight: 800;
+      font-size: 13px;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);
+      transition: transform 0.15s ease;
+    }
+
+    .btn-print:hover {
+      transform: scale(1.03);
+    }
+
+    /* Hoja A4 / Carta */
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 24px auto;
+      background: #ffffff;
+      padding: 18mm 18mm 20mm 18mm;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    /* Campos editables en pantalla */
+    [contenteditable="true"] {
+      outline: none;
+      border-radius: 4px;
+      transition: background 0.15s;
+    }
+
+    [contenteditable="true"]:hover {
+      background: #fef3c7;
+    }
+
+    [contenteditable="true"]:focus {
+      background: #fde68a;
+      padding: 1px 4px;
+    }
+
+    /* Cabecera Corporativa CJ Systems */
+    .brand-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 14px;
+      border-bottom: 3px solid var(--accent);
+      margin-bottom: 18px;
+    }
+
+    .brand-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-badge {
+      width: 46px;
+      height: 46px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
+      color: #111827;
+      font-family: 'Poppins', sans-serif;
+      font-weight: 900;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      letter-spacing: -0.5px;
+    }
+
+    .brand-title {
+      font-family: 'Poppins', sans-serif;
+      font-weight: 900;
+      font-size: 22px;
+      color: var(--primary);
+      line-height: 1.05;
+    }
+
+    .brand-title span {
+      color: var(--accent);
+    }
+
+    .brand-sub {
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 1.4px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .doc-title {
+      font-family: 'Poppins', sans-serif;
+      font-size: 23px;
+      font-weight: 800;
+      color: var(--primary);
+      margin-bottom: 4px;
+      letter-spacing: -0.3px;
+    }
+
+    .doc-meta {
+      font-size: 12.5px;
+      color: var(--accent);
+      font-weight: 600;
+      margin-bottom: 18px;
+    }
+
+    /* Títulos de sección estilo Auranah */
+    .section-title {
+      font-family: 'Poppins', sans-serif;
+      font-size: 11.5px;
+      font-weight: 800;
+      letter-spacing: 1.6px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-top: 20px;
+      margin-bottom: 8px;
+    }
+
+    p {
+      margin-bottom: 9px;
+      color: #374151;
+    }
+
+    /* Tablas limpias */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 14px 0;
+      font-size: 12.5px;
+    }
+
+    .info-table td {
+      padding: 7px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .info-table tr:nth-child(even) {
+      background: var(--bg-zebra);
+    }
+
+    .info-table td:first-child {
+      width: 30%;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .styled-table th {
+      background: var(--primary);
+      color: #ffffff;
+      text-align: left;
+      padding: 8px 11px;
+      font-weight: 700;
+      font-size: 12px;
+    }
+
+    .styled-table td {
+      padding: 8px 11px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    .styled-table tr:nth-child(even) td {
+      background: var(--bg-zebra);
+    }
+
+    .styled-table td:first-child {
+      font-weight: 700;
+      color: var(--primary);
+      width: 28%;
+    }
+
+    .highlight-box {
+      background: var(--accent-soft);
+      border: 1px solid #fcd34d;
+      border-left: 4px solid var(--accent);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin: 12px 0;
+      font-size: 12.5px;
+    }
+
+    .highlight-box strong {
+      color: var(--primary);
+    }
+
+    /* Tarjetas de planes / inversión */
+    .price-strong {
+      font-weight: 800;
+      color: var(--primary);
+      font-size: 13.5px;
+    }
+
+    .badge-yes {
+      display: inline-block;
+      background: #dcfce7;
+      color: #166534;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+    }
+
+    .badge-no {
+      display: inline-block;
+      background: #f3f4f6;
+      color: #4b5563;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+    }
+
+    ul.clean-list {
+      margin: 6px 0 12px 18px;
+    }
+
+    ul.clean-list li {
+      margin-bottom: 5px;
+      color: #374151;
+    }
+
+    /* Caja de aceptación con checkboxes */
+    .acceptance-box {
+      background: #f8fafc;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin: 12px 0 18px 0;
+    }
+
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--primary);
+    }
+
+    .check-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .checkbox-square {
+      width: 15px;
+      height: 15px;
+      border: 1.8px solid var(--primary);
+      border-radius: 3px;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+
+    .signature-table th {
+      background: var(--primary);
+      color: #ffffff;
+      padding: 8px 12px;
+      text-align: left;
+      width: 50%;
+    }
+
+    .signature-table td {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: bottom;
+    }
+
+    .signature-table tr:nth-child(even) td {
+      background: var(--bg-zebra);
+    }
+
+    .sig-space {
+      height: 36px;
+    }
+
+    /* Pie de página corporativo */
+    .page-footer {
+      margin-top: 18px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .page-footer strong {
+      color: var(--primary);
+    }
+
+    /* Vista visual simplificada de cómo funciona el sistema */
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 12px 0 16px 0;
+    }
+
+    .step-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      background: var(--bg-zebra);
+    }
+
+    .step-num {
+      display: inline-block;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 800;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin-bottom: 6px;
+    }
+
+    .step-card h4 {
+      font-size: 13px;
+      color: var(--primary);
+      margin-bottom: 4px;
+    }
+
+    .step-card p {
+      font-size: 11.5px;
+      margin-bottom: 0;
+      color: var(--muted);
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+      }
+
+      .toolbar {
+        display: none !important;
+      }
+
+      .page {
+        margin: 0;
+        box-shadow: none;
+        width: 100%;
+        min-height: 296mm;
+        page-break-after: always;
+      }
+
+      .page:last-child {
+        page-break-after: auto;
+      }
+
+      [contenteditable="true"]:hover,
+      [contenteditable="true"]:focus {
+        background: transparent;
+        padding: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Barra de herramientas para editar rápido y guardar como PDF -->
+  <div class="toolbar">
+    <div class="toolbar-info">
+      <strong>CJ Systems · Generador de Cotizaciones:</strong> Haz clic en cualquier texto (nombre del cliente, ciudad, precios, fecha o cédula) para editarlo antes de guardar el PDF.
+    </div>
+    <button class="btn-print" onclick="window.print()">🖨️ Guardar / Imprimir PDF</button>
+  </div>
+
+  <!-- ==================== PÁGINA 1 ==================== -->
+  <div class="page">
+    <div>
+      <div class="brand-header">
+        <div class="brand-left">
+          <div class="brand-badge">CJ</div>
+          <div>
+            <div class="brand-title">CJ <span>SYSTEMS</span></div>
+            <div class="brand-sub">Ingeniería de Sistemas &amp; Soluciones Tecnológicas</div>
+          </div>
+        </div>
+        <div style="text-align:right; font-size:11.5px; color:#6b7280;">
+          <div><strong>Ing. Ciro José</strong></div>
+          <div>WhatsApp: 311 871 5006</div>
+        </div>
+      </div>
+
+      <h1 class="doc-title">Propuesta comercial · Rockola Digital Interactiva por QR</h1>
+      <div class="doc-meta" contenteditable="true">22 de noviembre de 2026 · Ing. Ciro José, Ingeniero de Sistemas</div>
+
+      <!-- Tabla de datos del cliente y proveedor -->
+      <table class="info-table">
+        <tr>
+          <td>Cliente / Establecimiento</td>
+          <td contenteditable="true">[Nombre del Bar / Restaurante / Negocio]</td>
+        </tr>
+        <tr>
+          <td>Contacto del cliente</td>
+          <td contenteditable="true">[Nombre del dueño o administrador · Teléfono]</td>
+        </tr>
+        <tr>
+          <td>Ciudad</td>
+          <td contenteditable="true">[Ciudad]</td>
+        </tr>
+        <tr>
+          <td>Proveedor</td>
+          <td>CJ Systems — Ing. Ciro José, Ingeniero de Sistemas</td>
+        </tr>
+        <tr>
+          <td>Contacto del proveedor</td>
+          <td>WhatsApp 311 871 5006 · cjperrony@gmail.com · tu-kva.vercel.app</td>
+        </tr>
+        <tr>
+          <td>Validez de la propuesta</td>
+          <td contenteditable="true">30 días desde la fecha de este documento</td>
+        </tr>
+      </table>
+
+      <div class="section-title">Presentación</div>
+      <p>
+        Le ofrecemos una plataforma web de <strong>Rockola Digital Interactiva por Código QR</strong> lista para operar en su establecimiento, totalmente personalizada con <strong>el nombre, el logotipo y los colores de su marca</strong>. Es el mismo sistema que actualmente opera con éxito en <strong>Tu K-VA</strong> en su jornada diaria, por lo que no es un desarrollo experimental: se entrega probado y funcionando en producción.
+      </p>
+      <p>
+        Sus clientes no necesitan descargar ni instalar ninguna aplicación en el celular: simplemente escanean el código QR ubicado en su mesa, buscan sus canciones favoritas y las envían a la fila musical en tiempo real. El computador de su negocio conectado al sonido reproduce todo de forma automática y sin interrupciones.
+      </p>
+
+      <div class="steps-grid">
+        <div class="step-card">
+          <span class="step-num">Paso 1</span>
+          <h4>Escanean el QR en su mesa</h4>
+          <p>Cada mesa cuenta con un código QR único. Al escanearlo se abre la rockola con la marca de su negocio.</p>
+        </div>
+        <div class="step-card">
+          <span class="step-num">Paso 2</span>
+          <h4>Piden música sin monopolios</h4>
+          <p>El sistema limita a 2 canciones cada 10 minutos por mesa/celular y evita canciones repetidas o muy largas.</p>
+        </div>
+        <div class="step-card">
+          <span class="step-num">Paso 3</span>
+          <h4>Suena en vivo en el local</h4>
+          <p>El computador del bar reproduce los turnos automáticamente y activa música ambiental si la fila queda vacía.</p>
+        </div>
+      </div>
+
+      <div class="section-title">Qué incluye el sistema</div>
+      <p>Se entrega completo con todos los módulos activos, sin cobros ocultos por módulo.</p>
+
+      <table class="styled-table">
+        <thead>
+          <tr>
+            <th>Módulo</th>
+            <th>Qué hace</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Interfaz móvil por QR</td>
+            <td>Catálogo y buscador musical instantáneo desde el celular del cliente, con vista en vivo de la canción sonando y los próximos turnos.</td>
+          </tr>
+          <tr>
+            <td>Marca propia (Marca Blanca)</td>
+            <td>Personalización completa con el nombre de su negocio, eslogan, logotipo y paleta de colores propios en mesas, reproductor y panel.</td>
+          </tr>
+          <tr>
+            <td>Reproductor Central (TV / Sonido)</td>
+            <td>Pantalla profesional para el computador o televisor del bar: reproduce video y audio automáticamente, muestra qué mesa pidió cada tema y permite pausar, saltar o silenciar.</td>
+          </tr>
+          <tr>
+            <td>Control Antimonopolio</td>
+            <td>Regla automática de máximo 2 canciones cada 10 minutos por mesa y por celular, bloqueo de canciones duplicadas en fila y límite de 10 minutos por canción.</td>
+          </tr>
+          <tr>
+            <td>Auto-DJ Inteligente 24/7</td>
+            <td>Cuando no hay pedidos en espera, el sistema selecciona aleatoriamente canciones del Top más sonado de su bar para que nunca haya silencio.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="page-footer">
+      <strong>CJ Systems</strong> · Ingeniería de Sistemas · Ing. Ciro José · WhatsApp 311 871 5006 · cjperrony@gmail.com
+    </div>
+  </div>
+
+  <!-- ==================== PÁGINA 2 ==================== -->
+  <div class="page">
+    <div>
+      <div class="section-title" style="margin-top:0;">Módulos adicionales incluidos</div>
+      <table class="styled-table">
+        <thead>
+          <tr>
+            <th>Módulo</th>
+            <th>Qué hace</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Modo Barra / DJ</td>
+            <td>Buscador interno exclusivo para el personal del bar: permite poner una canción a sonar de inmediato ("Sonar Ya"), agregar a la fila, reordenar turnos arrastrando y soltando, o eliminar pedidos inapropiados.</td>
+          </tr>
+          <tr>
+            <td>Recuperación Anti-Bloqueo</td>
+            <td>Si un video musical tiene restricciones de derechos de autor en YouTube, el reproductor busca automáticamente una versión alternativa (audio/letra) y guarda el video bloqueado en lista negra para que no vuelva a salir.</td>
+          </tr>
+          <tr>
+            <td>Gestión de Mesas y QRs</td>
+            <td>Creación y eliminación ilimitada de mesas (ej. Mesa 1, Barra VIP, Terraza) con generación y descarga inmediata del código QR listo para imprimir.</td>
+          </tr>
+          <tr>
+            <td>Estadísticas e Historial</td>
+            <td>Panel en tiempo real con canciones reproducidas hoy, canciones en espera, mesas activas, Top 5 de canciones más sonadas en su bar e historial detallado por mesa y hora.</td>
+          </tr>
+          <tr>
+            <td>Seguridad y Acceso</td>
+            <td>Acceso privado con usuario y contraseña exclusivos para su establecimiento; base de datos aislada donde solo usted ve la actividad de su negocio.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="highlight-box">
+        <strong>Personalización incluida desde el día 1:</strong> Nombre comercial, subtítulo/eslogan, subida de logotipo, colores de marca, creación de las mesas iniciales con sus archivos QR listos para impresión y usuario administrador propio.<br />
+        <strong>No incluido en este valor:</strong> Impresión física de acrílicos/stickers (disponible como servicio adicional si lo desea) ni módulos nuevos a la medida fuera del alcance estándar.
+      </div>
+
+      <div class="section-title">Inversión y planes</div>
+      <p>Valores en pesos colombianos (COP). <em>[CJ Systems — Persona Natural, no responsable de IVA]</em>.</p>
+
+      <table class="styled-table">
+        <thead>
+          <tr>
+            <th>Concepto</th>
+            <th>Plan Mensual (Recomendado)</th>
+            <th>Plan Anual (2 meses gratis)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Instalación, configuración y personalización (pago único)</td>
+            <td class="price-strong" contenteditable="true">$200.000</td>
+            <td class="price-strong" contenteditable="true">$150.000</td>
+          </tr>
+          <tr>
+            <td>Suscripción del servicio (nube, soporte y actualizaciones)</td>
+            <td class="price-strong" contenteditable="true">$80.000 / mes</td>
+            <td class="price-strong" contenteditable="true">$800.000 / año <span style="font-weight:400; font-size:11px; color:#166534;">(ahorra $160.000)</span></td>
+          </tr>
+          <tr>
+            <td>Alojamiento en la nube y base de datos</td>
+            <td>Incluido</td>
+            <td>Incluido</td>
+          </tr>
+          <tr>
+            <td>Cantidad de mesas con QR</td>
+            <td contenteditable="true">Hasta 25 mesas activas</td>
+            <td contenteditable="true">Mesas ilimitadas</td>
+          </tr>
+          <tr>
+            <td>Personalización de logo, nombre y colores</td>
+            <td>Incluida (editable en vivo)</td>
+            <td>Incluida (editable en vivo)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>
+        <strong>Incluido en la instalación:</strong> creación de la cuenta aislada de su establecimiento, carga de su logo y paleta de colores, generación de los códigos QR de todas sus mesas listos para imprimir, prueba en vivo con el computador de sonido y capacitación de 1 hora al personal (virtual o presencial).
+      </p>
+      <p>
+        <strong>Forma de pago:</strong> 50 % del valor de instalación al aprobar la propuesta y 50 % al entregar el sistema funcionando en su local. La mensualidad se paga anticipada dentro de los primeros 5 días de cada mes.
+      </p>
+
+      <div class="section-title">Qué cubre la mensualidad</div>
+      <table class="styled-table">
+        <thead>
+          <tr>
+            <th>Tipo de servicio</th>
+            <th>Ejemplos</th>
+            <th style="width:16%;">¿Incluido?</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Servidores y nube 24/7</td>
+            <td>Alojamiento web, servidor API, base de datos en tiempo real y certificados SSL de seguridad.</td>
+            <td><span class="badge-yes">Sí</span></td>
+          </tr>
+          <tr>
+            <td>Corrección de fallas</td>
+            <td>Ajustes ante cambios de YouTube, errores de visualización en celulares o problemas de sincronización.</td>
+            <td><span class="badge-yes">Sí</span></td>
+          </tr>
+          <tr>
+            <td>Mejoras y nuevas funciones</td>
+            <td>Todas las mejoras generales que CJ Systems lance para mejorar la experiencia de los bares.</td>
+            <td><span class="badge-yes">Sí</span></td>
+          </tr>
+          <tr>
+            <td>Soporte técnico directo</td>
+            <td>Atención directa por WhatsApp con el Ing. Ciro José ante dudas o inconvenientes operativos.</td>
+            <td><span class="badge-yes">Sí</span></td>
+          </tr>
+          <tr>
+            <td>Desarrollos a la medida</td>
+            <td>Integraciones exclusivas con otro software del cliente o funciones personalizadas únicas.</td>
+            <td><span class="badge-no">Se cotiza aparte</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="page-footer">
+      <strong>CJ Systems</strong> · Ingeniería de Sistemas · Ing. Ciro José · WhatsApp 311 871 5006 · cjperrony@gmail.com
+    </div>
+  </div>
+
+  <!-- ==================== PÁGINA 3 ==================== -->
+  <div class="page">
+    <div>
+      <div class="section-title" style="margin-top:0;">Implementación, soporte y condiciones</div>
+      <p>
+        El sistema queda instalado, personalizado y listo para operar en <strong>1 a 3 días hábiles</strong> a partir del primer pago y la entrega del logotipo y lista de mesas.
+      </p>
+      <ul class="clean-list">
+        <li><strong>Día 1:</strong> El cliente entrega el logotipo, colores preferidos y nombres/cantidad de mesas.</li>
+        <li><strong>Día 2:</strong> Creación de cuenta, personalización visual completa, generación de archivos QR y pruebas.</li>
+        <li><strong>Día 3:</strong> Capacitación al administrador/personal y puesta en marcha en el computador del establecimiento.</li>
+      </ul>
+
+      <p>
+        <strong>Horario de soporte:</strong> Atención por WhatsApp al <strong>311 871 5006</strong> de lunes a sábado de 9:00 a. m. a 8:00 p. m. (con atención prioritaria en noches de fin de semana ante cualquier eventualidad crítica del reproductor).
+      </p>
+
+      <div class="section-title">Aclaraciones importantes</div>
+      <ul class="clean-list">
+        <li><strong>Requisitos del establecimiento:</strong> El negocio únicamente necesita un computador (o portátil) con conexión estable a internet conectado a su sistema de sonido y navegador Google Chrome actualizado.</li>
+        <li><strong>Continuidad del servicio:</strong> Si la mensualidad presenta un atraso superior a 10 días calendario, las mesas QR podrán pausarse temporalmente hasta ponerse al día; su configuración, mesas e historial no se borran.</li>
+        <li><strong>Propiedad intelectual:</strong> El código fuente y la plataforma pertenecen a <strong>CJ Systems (Ing. Ciro José)</strong>. El cliente recibe una licencia de uso exclusiva para su establecimiento y no está autorizado a revenderla ni replicarla para terceros.</li>
+        <li><strong>Equipos físicos:</strong> Computadores, televisores, parlantes o impresión física de señalética/acrílicos QR no están incluidos en el valor base (podemos asesorarle o cotizar la impresión por separado si lo requiere).</li>
+        <li><strong>Firma tecnológica:</strong> La interfaz de las mesas mantiene una mención discreta al pie de página indicando <em>"Tecnología por CJ Systems · Ing. Ciro José"</em>.</li>
+      </ul>
+
+      <div class="section-title" style="margin-top:26px;">Aceptación de la propuesta</div>
+      <p>Para aceptar esta propuesta y dar inicio a la implementación, marque el plan elegido y firme:</p>
+
+      <div class="acceptance-box">
+        <div class="check-row">
+          <span class="checkbox-square"></span>
+          <span>Plan Mensual — Instalación ($200.000 pago único) + Mensualidad ($80.000 / mes)</span>
+        </div>
+        <div class="check-row">
+          <span class="checkbox-square"></span>
+          <span>Plan Anual — Instalación ($150.000 pago único) + Pago Anual ($800.000 / año — 2 meses gratis)</span>
+        </div>
+      </div>
+
+      <table class="signature-table">
+        <thead>
+          <tr>
+            <th>Cliente / Establecimiento</th>
+            <th>Proveedor — CJ Systems</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Nombre:</strong> <span contenteditable="true">_______________________________</span></td>
+            <td><strong>Nombre:</strong> Ing. Ciro José</td>
+          </tr>
+          <tr>
+            <td><strong>Cédula / NIT:</strong> <span contenteditable="true">___________________________</span></td>
+            <td><strong>Cédula / NIT:</strong> <span contenteditable="true">[Tu número de cédula]</span></td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Firma:</strong>
+              <div class="sig-space"></div>
+            </td>
+            <td>
+              <strong>Firma:</strong>
+              <div class="sig-space"></div>
+            </td>
+          </tr>
+          <tr>
+            <td><strong>Fecha:</strong> <span contenteditable="true">____ / ____ / 2026</span></td>
+            <td><strong>Fecha:</strong> <span contenteditable="true">22 / 11 / 2026</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="page-footer">
+      <strong>CJ Systems</strong> · Ingeniería de Sistemas · Ing. Ciro José · WhatsApp 311 871 5006 · cjperrony@gmail.com
+    </div>
+  </div>
+
+</body>
+</html>

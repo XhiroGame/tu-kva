@@ -85,20 +85,22 @@ export default function LandingPage() {
 
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3.5">
             <a
-              href="#contacto"
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
               className="w-full sm:w-auto btn-primary flex items-center justify-center gap-2 py-4 px-8 text-sm sm:text-base"
             >
               <MessageCircle className="w-5 h-5" />
               <span>Llevar el Sistema a mi Negocio</span>
             </a>
 
-            <Link
-              to="/admin/login"
+            <a
+              href="#como-funciona"
               className="w-full sm:w-auto px-7 py-4 rounded-2xl bg-dark-50 hover:bg-white/10 border border-white/15 text-sm sm:text-base font-bold text-white flex items-center justify-center gap-2 transition-all"
             >
-              <MonitorSpeaker className="w-5 h-5 text-beer-400" />
-              <span>Entrar al Panel de mi Bar</span>
-            </Link>
+              <QrCode className="w-5 h-5 text-beer-400" />
+              <span>Ver Cómo Funciona</span>
+            </a>
           </div>
 
           {/* Métricas / Confianza */}
@@ -124,7 +126,7 @@ export default function LandingPage() {
       </section>
 
       {/* CÓMO FUNCIONA EN 3 PASOS */}
-      <section className="py-14 sm:py-20 px-4 sm:px-6 bg-dark-200/70 border-y border-white/5">
+      <section id="como-funciona" className="py-14 sm:py-20 px-4 sm:px-6 bg-dark-200/70 border-y border-white/5">
         <div className="max-w-6xl mx-auto">
           <div className="text-center max-w-2xl mx-auto mb-12">
             <span className="text-xs font-bold uppercase tracking-widest text-beer-400">
@@ -270,13 +272,6 @@ export default function LandingPage() {
                   <MessageCircle className="w-4 h-4" />
                   <span>WhatsApp: +57 311 871 5006</span>
                 </a>
-
-                <Link
-                  to="/admin/login"
-                  className="w-full sm:w-auto py-3.5 px-5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs sm:text-sm font-semibold text-gray-200 text-center transition-all"
-                >
-                  Ya soy cliente → Iniciar Sesión
-                </Link>
               </div>
             </div>
           </div>
@@ -291,15 +286,8 @@ export default function LandingPage() {
             <span>•</span>
             <span>Ing. Ciro José — Ingeniería de Sistemas</span>
           </div>
-          <div className="flex items-center gap-4">
-            <span>© {new Date().getFullYear()} CJ Systems. Todos los derechos reservados.</span>
-            <Link
-              to="/superadmin/login"
-              className="text-gray-600 hover:text-beer-400 transition-colors"
-              title="Acceso Consola Maestra SuperAdmin"
-            >
-              SuperAdmin
-            </Link>
+          <div>
+            © {new Date().getFullYear()} CJ Systems. Todos los derechos reservados.
           </div>
         </div>
       </footer>
