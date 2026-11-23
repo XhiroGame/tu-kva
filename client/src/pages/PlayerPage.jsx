@@ -447,10 +447,11 @@ export default function PlayerPage() {
   }, [businessSlug])
 
   // 5b. Heartbeat de presencia del Reproductor Central:
-  // Informa cada 8s si el reproductor está abierto y reproduciendo; si se cierra la pestaña, los celulares dejan de ver "Sonando ahora"
+  // Informa cada 8s (y al cambiar de canción) si el reproductor está abierto y qué canción está sonando
+  // (tanto pedidos de mesas como música aleatoria/ambiente) para que los celulares siempre vean "Sonando ahora"
   useEffect(() => {
     const ping = (playingState) => {
-      sendPlayerHeartbeat(businessSlug, playingState).catch(() => {})
+      sendPlayerHeartbeat(businessSlug, playingState, currentTrackRef.current).catch(() => {})
     }
 
     ping(isPlaying)
@@ -470,7 +471,7 @@ export default function PlayerPage() {
       window.removeEventListener('beforeunload', handleBeforeUnload)
       ping(false)
     }
-  }, [businessSlug, isPlaying])
+  }, [businessSlug, isPlaying, currentTrack?.id, currentTrack?.songs?.provider_song_id])
 
   // Buscar y reproducir automáticamente una versión alternativa (audio / letra / en vivo)
   // si el video original tiene restricciones de derechos de autor (LatinAutor/UMPG/Error 150/101)

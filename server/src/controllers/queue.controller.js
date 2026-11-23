@@ -112,9 +112,16 @@ export async function getQueue(req, res) {
     const isPlayerActive = Boolean(hb && Date.now() - hb.lastSeen < 20000 && hb.isPlaying)
     const isPlayerRequest = req.query.role === 'player'
 
-    // Si la consulta viene de una mesa/cliente y el reproductor central NO está abierto ni reproduciendo,
-    // no mostrar una canción fantasma como "Sonando ahora en el bar"
-    const visibleCurrentTrack = isPlayerRequest || isPlayerActive ? currentTrack : null
+    // Para clientes en mesa:
+    // - Si hay pedido de mesa en estado 'playing' y el reproductor está activo, mostrarlo.
+    // - Si NO hay pedido en BD pero el reproductor está tocando una canción aleatoria/ambiente,
+    //   mostrar la canción real reportada por el heartbeat del reproductor.
+    let visibleCurrentTrack = null
+    if (isPlayerRequest) {
+      visibleCurrentTrack = currentTrack
+    } else if (isPlayerActive) {
+      visibleCurrentTrack = currentTrack || hb?.currentTrack || null
+    }
 
     const branding = await getBusinessBranding(business.id)
 
@@ -383,11 +390,33 @@ export async function updateQueueStatus(req, res) {
 export async function playerHeartbeat(req, res) {
   try {
     const isPlaying = Boolean(req.body?.isPlaying)
+    const rawTrack = req.body?.currentTrack || null
+    const sanitizedTrack =
+      rawTrack && rawTrack.songs && rawTrack.songs.title
+        ? {
+            id: rawTrack.id || 'ambient-live',
+            isFallback: Boolean(rawTrack.isFallback),
+            tables: {
+              table_name:
+                rawTrack.tables?.table_name ||
+                (rawTrack.isFallback ? 'Música ambiental del bar' : 'El Bar'),
+            },
+            songs: {
+              provider_song_id: rawTrack.songs.provider_song_id || '',
+              title: String(rawTrack.songs.title),
+              artist: String(rawTrack.songs.artist || 'Artista'),
+              thumbnail_url: rawTrack.songs.thumbnail_url || null,
+              duration: Number(rawTrack.songs.duration) || 0,
+            },
+          }
+        : null
+
     const business = await resolveBusinessBySlug(req.params.businessSlug)
     const businessId = business?.id || 'a1b2c3d4-0000-0000-0000-000000000001'
     playerHeartbeatMap.set(businessId, {
       lastSeen: Date.now(),
       isPlaying,
+      currentTrack: isPlaying ? sanitizedTrack : null,
     })
 
     return res.json({ success: true, playerActive: isPlaying })

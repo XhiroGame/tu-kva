@@ -131,11 +131,30 @@ export const getQueue = (businessSlug, options = {}) => {
 
 /**
  * Reporta al backend que el reproductor central está activo/sonando
+ * e incluye la canción actual (incluyendo canciones aleatorias/ambientales) para mostrarla en las mesas
  */
-export const sendPlayerHeartbeat = (businessSlug, isPlaying) =>
+export const sendPlayerHeartbeat = (businessSlug, isPlaying, currentTrack = null) =>
   apiFetch(`/queue/${businessSlug}/heartbeat`, {
     method: 'POST',
-    body: JSON.stringify({ isPlaying: Boolean(isPlaying) }),
+    body: JSON.stringify({
+      isPlaying: Boolean(isPlaying),
+      currentTrack: currentTrack
+        ? {
+            id: currentTrack.id,
+            isFallback: Boolean(currentTrack.isFallback),
+            tables: currentTrack.tables || null,
+            songs: currentTrack.songs
+              ? {
+                  provider_song_id: currentTrack.songs.provider_song_id,
+                  title: currentTrack.songs.title,
+                  artist: currentTrack.songs.artist,
+                  thumbnail_url: currentTrack.songs.thumbnail_url,
+                  duration: currentTrack.songs.duration || 0,
+                }
+              : null,
+          }
+        : null,
+    }),
   })
 
 /**
