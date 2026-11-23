@@ -60,12 +60,20 @@ export async function reportBlockedSong(req, res) {
       searchMemoryCache.set(key, { ...entry, data: filtered })
     }
 
-    // Persistir en Supabase para que sobreviva reinicios del servidor
+    // Persistir en Supabase con upsert para que sobreviva reinicios incluso si el video aún no estaba cacheado
     await supabaseAdmin
       .from('songs')
-      .update({ stream_url: 'BLOCKED_EMBED', duration: 0 })
-      .eq('provider', 'youtube')
-      .eq('provider_song_id', idStr)
+      .upsert(
+        {
+          provider: 'youtube',
+          provider_song_id: idStr,
+          title: 'Video restringido por derechos',
+          artist: 'Bloqueado',
+          duration: 0,
+          stream_url: 'BLOCKED_EMBED',
+        },
+        { onConflict: 'provider,provider_song_id' }
+      )
 
     console.log(`[Blocked Song] Video ${idStr} añadido a lista negra (código ${errorCode || 'N/A'})`)
     return res.json({ success: true, blockedId: idStr })
@@ -216,24 +224,28 @@ export async function searchSongs(req, res) {
     if (strictFilteredResults.length > 0) {
       setToMemoryCache(normalizedKey, strictFilteredResults)
 
-      // 6. Cachear de forma asíncrona en Supabase (tabla songs) en segundo plano
-      const songsToUpsert = strictFilteredResults.map((song) => ({
-        provider: song.provider,
-        provider_song_id: String(song.provider_song_id),
-        title: song.title,
-        artist: song.artist,
-        album: song.album || null,
-        thumbnail_url: song.thumbnail_url,
-        duration: song.duration || 0,
-        stream_url: song.stream_url,
-      }))
+      // 6. Cachear de forma asíncrona en Supabase (tabla songs) SIN sobrescribir nunca videos ya bloqueados
+      const songsToUpsert = strictFilteredResults
+        .filter((song) => !isSongBlocked(song))
+        .map((song) => ({
+          provider: song.provider,
+          provider_song_id: String(song.provider_song_id),
+          title: song.title,
+          artist: song.artist,
+          album: song.album || null,
+          thumbnail_url: song.thumbnail_url,
+          duration: song.duration || 0,
+          stream_url: song.stream_url,
+        }))
 
-      supabaseAdmin
-        .from('songs')
-        .upsert(songsToUpsert, { onConflict: 'provider,provider_song_id' })
-        .then(({ error }) => {
-          if (error) console.warn('[Songs Cache Error]', error.message)
-        })
+      if (songsToUpsert.length > 0) {
+        supabaseAdmin
+          .from('songs')
+          .upsert(songsToUpsert, { onConflict: 'provider,provider_song_id', ignoreDuplicates: true })
+          .then(({ error }) => {
+            if (error) console.warn('[Songs Cache Error]', error.message)
+          })
+      }
     }
 
     return res.json({

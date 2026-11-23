@@ -34,6 +34,10 @@ export default function PlayerPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [isSearching, setIsSearching] = useState(false)
+  const [busySongActionId, setBusySongActionId] = useState(null)
+
+  // Historial de IDs fallidos durante la sesión para nunca reintentar el mismo video bloqueado
+  const failedVideoIdsRef = useRef(new Set())
 
   // Estados de Drag & Drop para reordenar Próximos Turnos
   const [draggedIndex, setDraggedIndex] = useState(null)
@@ -150,28 +154,30 @@ export default function PlayerPage() {
     }
   }
 
-  // 2. Iniciar la siguiente canción de la lista
+  // 2. Iniciar la siguiente canción de la lista (actualiza refs ANTES del await para evitar doble carga por Realtime)
   const playNextTrack = async (nextItem) => {
     if (!nextItem) {
       await playSmartAmbientTrack()
       return
     }
 
+    const videoId = nextItem.songs?.provider_song_id
+    recordPlayedSongId(videoId)
+
+    // Actualizar referencias de inmediato ANTES del await para que un evento Realtime no reinicie el video
+    currentTrackRef.current = nextItem
+    setCurrentTrack(nextItem)
+    setQueue((prev) => prev.filter((item) => item.id !== nextItem.id))
+    setIsPlaying(true)
+
+    if (videoId) {
+      loadVideoInPlayer(videoId)
+    }
+
     try {
       await updateQueueItem(nextItem.id, { status: 'playing' })
-      recordPlayedSongId(nextItem.songs?.provider_song_id)
-
-      currentTrackRef.current = nextItem
-      setCurrentTrack(nextItem)
-      setQueue((prev) => prev.filter((item) => item.id !== nextItem.id))
-      setIsPlaying(true)
-
-      const videoId = nextItem.songs?.provider_song_id
-      if (videoId) {
-        loadVideoInPlayer(videoId)
-      }
     } catch (error) {
-      console.error('Error starting track:', error)
+      console.error('Error marcando canción como playing:', error)
     }
   }
 
@@ -373,13 +379,16 @@ export default function PlayerPage() {
     return () => clearTimeout(timeout)
   }, [searchQuery])
 
-  // Poner una canción a sonar inmediatamente (Acción DJ / Bar)
+  // Poner una canción a sonar inmediatamente (Acción DJ / Bar) — con bloqueo anti-doble clic
   const handlePlayNow = async (song) => {
+    if (busySongActionId) return
+    setBusySongActionId(`play-${song.provider_song_id}`)
+    isTransitioningRef.current = true
     try {
       const activeTrack = currentTrackRef.current
       // 1. Guardar la canción actual si había una de la cola
       if (activeTrack && !activeTrack.isFallback && activeTrack.id) {
-        await updateQueueItem(activeTrack.id, { status: 'played' })
+        await updateQueueItem(activeTrack.id, { status: 'played' }).catch(() => {})
       }
 
       // 2. Crear y forzar como sonando
@@ -389,7 +398,6 @@ export default function PlayerPage() {
       })
 
       if (queueRes?.data) {
-        await updateQueueItem(queueRes.data.id, { status: 'playing' })
         const directTrack = {
           ...queueRes.data,
           tables: { table_name: 'La Barra / DJ' },
@@ -399,6 +407,8 @@ export default function PlayerPage() {
         setCurrentTrack(directTrack)
         setIsPlaying(true)
         loadVideoInPlayer(song.provider_song_id)
+
+        await updateQueueItem(queueRes.data.id, { status: 'playing' })
       }
 
       toast.success(`Sonando ahora: ${song.title}`)
@@ -406,11 +416,18 @@ export default function PlayerPage() {
       setSearchQuery('')
     } catch (error) {
       toast.error(error.message || 'Error al poner la canción')
+    } finally {
+      setBusySongActionId(null)
+      setTimeout(() => {
+        isTransitioningRef.current = false
+      }, 2000)
     }
   }
 
-  // Agregar canción a la cola desde la barra
+  // Agregar canción a la cola desde la barra — con bloqueo anti-doble clic
   const handleAddToQueue = async (song) => {
+    if (busySongActionId) return
+    setBusySongActionId(`queue-${song.provider_song_id}`)
     try {
       await addToQueue({
         businessSlug,
@@ -422,6 +439,8 @@ export default function PlayerPage() {
       setSearchQuery('')
     } catch (error) {
       toast.error(error.message || 'Error al agregar a la cola')
+    } finally {
+      setBusySongActionId(null)
     }
   }
 
@@ -486,32 +505,46 @@ export default function PlayerPage() {
     const cleanTitle = rawTitle
       .replace(/\(video oficial\)/gi, '')
       .replace(/\(official video\)/gi, '')
+      .replace(/oficial video hd/gi, '')
+      .replace(/video oficial/gi, '')
       .replace(/\[original\]/gi, '')
       .replace(/\(audio\)/gi, '')
       .replace(/\(letra\)/gi, '')
+      .replace(/\bhd\b/gi, '')
       .trim()
 
+    // Priorizar versiones de Letra / Audio / En vivo que casi nunca tienen bloqueo de embed
     const queries = [
+      `${cleanTitle} letra`,
       `${cleanTitle} ${rawArtist} letra`,
-      `${cleanTitle} ${rawArtist} audio`,
-      `${cleanTitle} ${rawArtist} en vivo`,
-      `${cleanTitle} audio oficial`
+      `${cleanTitle} audio`,
+      `${cleanTitle} en vivo`,
     ]
 
     for (const q of queries) {
       try {
-        const searchRes = await searchSongs(q, { limit: 10 })
-        const candidates = (searchRes?.data || []).filter(
-          (cand) =>
-            cand.provider_song_id &&
-            String(cand.provider_song_id) !== currentId &&
-            !recentPlayedIdsRef.current.includes(String(cand.provider_song_id)) &&
+        const searchRes = await searchSongs(q, { limit: 12 })
+        const candidates = (searchRes?.data || []).filter((cand) => {
+          const cid = String(cand.provider_song_id || '')
+          return (
+            cid &&
+            cid !== currentId &&
+            !failedVideoIdsRef.current.has(cid) &&
+            !recentPlayedIdsRef.current.includes(cid) &&
             cand.duration > 30 &&
             cand.duration < 600
-        )
+          )
+        })
+
+        // Preferir resultados con "letra" o "audio" en el título (tienen menos bloqueos VEVO/LatinAutor)
+        candidates.sort((a, b) => {
+          const score = (t) => (/letra|lyrics|audio/i.test(t || '') ? 1 : 0)
+          return score(b.title) - score(a.title)
+        })
 
         if (candidates.length > 0) {
           const altSong = candidates[0]
+          failedVideoIdsRef.current.add(currentId)
           recordPlayedSongId(currentId)
 
           toast.success(
@@ -525,6 +558,7 @@ export default function PlayerPage() {
               ...blockedTrack.songs,
               provider_song_id: altSong.provider_song_id,
               title: altSong.title,
+              thumbnail_url: altSong.thumbnail_url || blockedTrack.songs?.thumbnail_url,
             },
           }
           currentTrackRef.current = updatedTrack
@@ -550,6 +584,7 @@ export default function PlayerPage() {
       const badTrack = currentTrackRef.current
       const badId = badTrack?.songs?.provider_song_id
       if (badId) {
+        failedVideoIdsRef.current.add(String(badId))
         recordPlayedSongId(badId)
         // Reportar a la lista negra permanente del servidor para que no vuelva a salir en búsquedas
         if (errorCode === 150 || errorCode === 101 || errorCode === 100) {
@@ -559,10 +594,11 @@ export default function PlayerPage() {
 
       // Códigos 101/150: Propietario del video bloqueó reproducción externa (LatinAutor/UMPG/etc.)
       // Códigos 100/2: Video no encontrado o inválido
-      if ((errorCode === 150 || errorCode === 101 || errorCode === 100 || errorCode === 2) && retryCountRef.current < 2) {
+      // Reintentar hasta 3 versiones alternativas antes de rendirse para garantizar que el pedido del cliente SÍ suene
+      if ((errorCode === 150 || errorCode === 101 || errorCode === 100 || errorCode === 2) && retryCountRef.current < 3) {
         retryCountRef.current += 1
         toast.error(
-          'El video oficial tiene restricción de derechos externos (LatinAutor/UMPG). Buscando versión alternativa...',
+          'El video oficial tiene restricción de derechos externos. Buscando versión alternativa...',
           { id: 'yt-error-skip', duration: 3500 }
         )
         const foundAlt = await tryPlayAlternative(badTrack)
@@ -1059,20 +1095,22 @@ export default function PlayerPage() {
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <button
                         onClick={() => handlePlayNow(song)}
-                        className="flex items-center gap-1 px-3 py-2 rounded-xl bg-beer-gradient text-dark-200 text-xs font-bold hover:brightness-110 active:scale-95 transition-all shadow-sm shadow-beer/30"
+                        disabled={Boolean(busySongActionId)}
+                        className="flex items-center gap-1 px-3 py-2 rounded-xl bg-beer-gradient text-dark-200 text-xs font-bold hover:brightness-110 active:scale-95 transition-all shadow-sm shadow-beer/30 disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Interrumpir y sonar de inmediato"
                       >
                         <Zap className="w-3.5 h-3.5 fill-current" />
-                        <span>Sonar Ya</span>
+                        <span>{busySongActionId === `play-${song.provider_song_id}` ? 'Cargando...' : 'Sonar Ya'}</span>
                       </button>
 
                       <button
                         onClick={() => handleAddToQueue(song)}
-                        className="flex items-center gap-1 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold active:scale-95 transition-all"
+                        disabled={Boolean(busySongActionId)}
+                        className="flex items-center gap-1 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Agregar al final de la fila"
                       >
                         <Plus className="w-3.5 h-3.5" />
-                        <span>A la Fila</span>
+                        <span>{busySongActionId === `queue-${song.provider_song_id}` ? '...' : 'A la Fila'}</span>
                       </button>
                     </div>
                   </div>
